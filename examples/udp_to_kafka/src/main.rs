@@ -82,20 +82,10 @@ fn receiver_builder_helper(vars: &EnvVars) -> Receiver {
 
     let buffer_size = vars.buffer_size;
 
-    // if !vars.use_dtls {
-    //     Receiver::new_udp_framed(ip, port, buffer_size)
-    // } else {
-    //     Receiver::new_dtls_framed(
-    //         ip,
-    //         port,
-    //         buffer_size,
-    //         (vars.server_cert.clone(), vars.server_key.clone()),
-    //     )
-    // }
     if !vars.use_dtls {
-        Receiver::new_tcp_stream(ip, port, buffer_size)
+        Receiver::new_udp_framed(ip, port, buffer_size)
     } else {
-        Receiver::new_tls_stream(
+        Receiver::new_dtls_framed(
             ip,
             port,
             buffer_size,
