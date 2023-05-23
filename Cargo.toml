@@ -1,0 +1,48 @@
+[package]
+name = "crab-kafka"
+version = "0.0.1"
+edition = "2021"
+authors = ["Flavio Bizzarri <fl.bizzarri@gmail.com>"]
+license = "Apache-2.0"
+description = "Forward <TCP|UDP> + TLS traffic to kafka"
+readme = "README.md"
+homepage = "https://github.com/newfla/crab-kafka"
+repository = "https://github.com/newfla/crab-kafka"
+keywords = ["kafka", "udp", "tcp", "tls"]
+categories = ["network-programming", "asynchronous"]
+
+[dependencies]
+log = "0.4"
+derive_builder= "0.12"
+fastrand = "1.9"
+ustr = "0.9"
+dashmap = "5.4.0"
+cached = "0.43"
+byte-unit = "4.0"
+itertools = "0.10"
+coarsetime = "0.1"
+derive-new = "0.5"
+nohash-hasher = "0.2"
+branches = "0.1"
+kanal = "0.1.0-pre8"
+tokio = { version = "1.2", features = ["full"] }
+tokio-util = "0.7"
+rdkafka = { version = "0.31", features = ["cmake-build","zstd-pkg-config","ssl","gssapi"] }
+tokio-native-tls = "0.3"
+tokio-dtls-stream-sink = "0.6"
+openssl = { version = "0.10", features = ["vendored"] }
+
+[dev-dependencies]
+mimalloc = { version = "*", default-features = false }
+utilities = {path = "examples/udp_to_kafka/utilities"}
+
+[profile.release]
+lto = true
+strip = true
+panic = "abort"
+
+[workspace]
+
+[[example]]
+name = "udp_to_kafka"
+path = "examples/udp_to_kafka/src/main.rs"

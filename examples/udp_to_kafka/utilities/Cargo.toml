@@ -1,0 +1,10 @@
+[package]
+name = "utilities"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4"
+simple_logger = "4.0"
+envconfig = "0.10"
+strum = { version = "0.24", features = ["derive"]}
