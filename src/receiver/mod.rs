@@ -14,11 +14,23 @@ use openssl::ssl::{SslContext, SslFiletype, SslMethod};
 
 use crate::{DataPacket, TlsOption};
 
+/// Facilities to receive data from sockets
 #[derive(new)]
 pub enum Receiver {
+    /// Read from socket by [`tokio::net::UdpSocket`], using a buffer with length [`crate::Receiver::UdpFramed::buffer_size`]
     UdpFramed  {ip: String, port: String, buffer_size: usize},
+
+    /// Read from socket by [`tokio::net::TcpStream`], using a buffer with length [`crate::Receiver::TcpStream::buffer_size`]
     TcpStream  {ip: String, port: String, buffer_size: usize},
-    DtlsFramed {ip: String, port: String, buffer_size: usize, security: TlsOption},
+
+    /// Read from socket by [`tokio_dtls_stream_sink::Session`], using a buffer with length [`crate::Receiver::DtlsStream::buffer_size`]
+    /// 
+    /// [`crate::Receiver::DtlsStream::security`] is interpreted as (path to server certificate as PCKS8 file, path to the private key as PCKS8 file)
+    DtlsStream {ip: String, port: String, buffer_size: usize, security: TlsOption},
+
+    /// Read from socket by [`tokio_native_tls::TlsStream`], using a buffer with length [`crate::Receiver::TlsStream::buffer_size`]
+    /// 
+    /// [`crate::Receiver::TlsStream::security`] is interpreted as (path to server certificate as PCKS8 file, path to the private key as PCKS8 file)
     TlsStream  {ip: String, port: String, buffer_size: usize, security: TlsOption}
 }
 
@@ -60,7 +72,7 @@ impl From<Receiver> for ReceiverTaskBuilder {
     fn from(val: Receiver) -> Self {
         match val {
             Receiver::UdpFramed  {ip, port, buffer_size} => build_udp_framed(ip, port, buffer_size),
-            Receiver::DtlsFramed {ip, port, security, buffer_size} => build_dtls_framed(ip, port, buffer_size, security),
+            Receiver::DtlsStream {ip, port, security, buffer_size} => build_dtls_framed(ip, port, buffer_size, security),
             Receiver::TcpStream  {ip, port, buffer_size} => build_tcp_stream(ip, port, buffer_size),
             Receiver::TlsStream  {ip, port, buffer_size, security} => build_tls_stream(ip, port, buffer_size, security)    
         }

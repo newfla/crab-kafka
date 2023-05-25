@@ -8,22 +8,31 @@ use ustr::ustr;
 
 use crate::{PartitionDetails, DataPacket};
 
+/// Hook to setup per packet kafka partition policy
 pub trait PartitionStrategy {
+    /// The returned value is interpreted as: ([`rdkafka::producer::future_producer::FutureRecord::partition`], [`rdkafka::producer::future_producer::FutureRecord::key`], order_key).
+    ///
+    ///  order_key can guarantee that packets from the same peer are sent to kafka respecting the reception order
     fn partition(&self, addr: &SocketAddr) -> PartitionDetails;
+
+    /// To store the partition number for the topic specified with [`crate::forwarder::ForwarderBuilder::kafka_settings`]
     fn set_num_partitions(&mut self, partitions: i32);
 }
 
-pub enum CheckpointStrategies {
-    OpenDoors,
-    ClosedDoors,
-    FlipCoin,
-}
-
+/// Facilities to distributes messages across topic partions
+/// 
+/// Use the enum variants to construct the strategy
 #[derive(new)]
 pub enum PartitionStrategies {
+    /// Let the broker to decide the partition
     None {#[new(default)] val: Option<PartitionStrategiesInternal>},
+    /// Assign a random partition for each packet
     Random {#[new(default)] val: Option<PartitionStrategiesInternal>},
+    /// Packets are distributed over partitions using a round robin schema
     RoundRobin {#[new(default)] val: Option<PartitionStrategiesInternal>},
+    /// Packets coming from the same peer are guaranted to be sent on the same partition.
+    /// 
+    /// Partitions are assigned to peers using a round robin schema.
     StickyRoundRobin {#[new(default)] val: Option<PartitionStrategiesInternal>},
 }
 
@@ -110,8 +119,21 @@ fn sticky_partition(addr: &SocketAddr, start_partition: &AtomicI32, num_partitio
     val
 }
 
+/// Hook to setup per packet forward policy
 pub trait CheckpointStrategy {
+    /// Prevents packets to be forwarded in kafka
+    /// data is composed as: (payload, (#valid bytes in payload, source address), recv_time)
     fn check(&self, data: (&DataPacket,&Option<i32>)) -> bool;
+}
+
+///Facilities to control the packets inflow to Kafka
+pub enum CheckpointStrategies {
+    /// Forward every packet
+    OpenDoors,
+    /// Discard every packet
+    ClosedDoors,
+    /// Leave it to chance
+    FlipCoin,
 }
 
 impl CheckpointStrategy for CheckpointStrategies {
@@ -124,12 +146,16 @@ impl CheckpointStrategy for CheckpointStrategies {
     }
 }
 
+/// Hook to modify tha packet payload before sending to Kafka
 pub trait TransformStrategy {
+    /// The returned value is used as payload for [`rdkafka::producer::future_producer::FutureRecord`]
     fn transform(&self, addr: &SocketAddr, payload: &[u8], partition: &Option<i32>) -> Vec<u8>;
 }
 
+/// Facilities to alter the network payload before sending it to Kafka
 #[derive(Clone)]
 pub enum TransformerStrategies {
+    /// Return payload without modification as [`std::vec::Vec<u8>`] 
     NoTransform
 }
 

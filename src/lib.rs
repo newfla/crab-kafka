@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 use std::{net::SocketAddr, sync::Arc };
 use statistics::StatisticData;
 use tokio::sync::Notify;
@@ -17,6 +18,8 @@ mod dispatcher;
 mod sender;
 mod receiver;
 mod strategies;
+
+/// Main library module
 pub mod forwarder;
 
 type DataPacket = (Vec<u8>, (usize,SocketAddr), Instant);

@@ -14,6 +14,7 @@ type AbortHandleForwarder = Arc<tokio::sync::Mutex<Vec<AbortHandle>>>;
 
 static GLOBAL_HANDLE: OnceCell<GlobalForwarder> = OnceCell::const_new();
 
+/// Send an orderly shutdown signal to all [`crate::forwarder::Forwarder`] instances
 pub fn shutdown_all(){
     if !GLOBAL_HANDLE.initialized() {
         return;
@@ -24,6 +25,7 @@ pub fn shutdown_all(){
     }
 }
 
+/// Abort all instances of [`crate::forwarder::Forwarder`] without waiting their orderly shutdown
 pub fn abort_all(){
     if !GLOBAL_HANDLE.initialized() {
         return;
@@ -32,6 +34,7 @@ pub fn abort_all(){
     GLOBAL_HANDLE.get().unwrap().lock().unwrap().clear();
 }
 
+/// Handle to order an orderly shutdown to the referenced [`crate::forwarder::Forwarder`] instance
 #[derive(Default,Clone)]
 pub struct ForwarderShutdownHandle {
     cancel_token: CancellationToken,
@@ -39,6 +42,7 @@ pub struct ForwarderShutdownHandle {
 }
 
 impl ForwarderShutdownHandle {
+    /// Send an orderly shutdown signal to the referenced [`crate::forwarder::Forwarder`] instance
     pub fn shutdown(&self){
         self.cancel_token.cancel();
     }
@@ -77,6 +81,7 @@ impl Index<ForwarderId> for Vec<ForwarderShutdownHandle> {
     }
 }
 
+/// A single forwarder instance. Must be built using [`crate::forwarder::ForwarderBuilder`]
 #[derive(Builder)]
 #[builder(pattern = "owned")]
 pub struct Forwarder<C,P,T>
@@ -163,6 +168,7 @@ where
         Ok(())
     }
 
+    /// Get the handle to order an orderly shutdown
     pub fn get_handle(&self) -> ForwarderShutdownHandle {
         GLOBAL_HANDLE.get()
             .unwrap()
@@ -207,6 +213,7 @@ where
     type Output = ForwarderReturn;
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
 
+    
     fn into_future(self) -> Self::IntoFuture {
         Box::pin(self.run())
     }

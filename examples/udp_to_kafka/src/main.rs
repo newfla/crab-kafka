@@ -85,7 +85,7 @@ fn receiver_builder_helper(vars: &EnvVars) -> Receiver {
     if !vars.use_dtls {
         Receiver::new_udp_framed(ip, port, buffer_size)
     } else {
-        Receiver::new_dtls_framed(
+        Receiver::new_dtls_stream(
             ip,
             port,
             buffer_size,
