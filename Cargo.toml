@@ -33,7 +33,7 @@ tokio-dtls-stream-sink = "0.6"
 openssl = { version = "0.10", features = ["vendored"] }
 
 [dev-dependencies]
-mimalloc = { version = "*", default-features = false }
+mimalloc = { version = "0.1", default-features = false }
 utilities = {path = "examples/udp_to_kafka/utilities"}
 
 [profile.release]
