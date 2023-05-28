@@ -1,18 +1,25 @@
-use std::{future::{IntoFuture, Future}, pin::Pin, fmt::Display};
+use std::{
+    fmt::Display,
+    future::{Future, IntoFuture},
+    pin::Pin,
+};
 
-use coarsetime::{Instant, Duration};
-use derive_builder::Builder;
-use derive_new::new;
-use kanal::AsyncReceiver;
-use log::info;
-use tokio::{time::interval_at, select};
-use tokio_util::sync::CancellationToken;
 use branches::unlikely;
 use byte_unit::Byte;
+use coarsetime::{Duration, Instant};
+use derive_builder::Builder;
+use derive_new::new;
+use itertools::{
+    Itertools,
+    MinMaxResult::{MinMax, NoElements, OneElement},
+};
+use kanal::AsyncReceiver;
+use log::info;
 use nohash_hasher::IntSet;
-use itertools::{Itertools,MinMaxResult::{NoElements, OneElement, MinMax}};
+use tokio::{select, time::interval_at};
+use tokio_util::sync::CancellationToken;
 
-use crate::{DataTransmitted};
+use crate::DataTransmitted;
 
 trait Stats {
     fn add_loss(&mut self);
@@ -22,7 +29,6 @@ trait Stats {
     fn reset(&mut self);
 }
 
-
 #[derive(Debug, PartialEq)]
 struct StatSummary {
     bandwidth: f32,
@@ -30,7 +36,7 @@ struct StatSummary {
     max_latency: Duration,
     average_latency: Duration,
     lost_packets: usize,
-    unique_connections: usize
+    unique_connections: usize,
 }
 
 impl Display for StatSummary {
@@ -39,19 +45,27 @@ impl Display for StatSummary {
         let max = self.max_latency.as_millis();
         let average = self.average_latency.as_millis();
 
-        let bandwidth = self.bandwidth*8.;
-        let bandwidth = Byte::from_bytes(bandwidth as u128).get_appropriate_unit(false).to_string();
-        let bandwidth = &bandwidth[0..bandwidth.len()-1];
+        let bandwidth = self.bandwidth * 8.;
+        let bandwidth = Byte::from_bytes(bandwidth as u128)
+            .get_appropriate_unit(false)
+            .to_string();
+        let bandwidth = &bandwidth[0..bandwidth.len() - 1];
 
-        writeln!(f,"\nLost packets: {}", self.lost_packets).and(
-        writeln!(f,"Unique connections: {}", self.unique_connections)).and(
-        writeln!(f,"Bandwidth: {bandwidth}bit/s")).and(
-        writeln!(f,"Latency: <min: {min}, max: {max}, average: {average}> ms")
-        )
+        writeln!(f, "\nLost packets: {}", self.lost_packets)
+            .and(writeln!(
+                f,
+                "Unique connections: {}",
+                self.unique_connections
+            ))
+            .and(writeln!(f, "Bandwidth: {bandwidth}bit/s"))
+            .and(writeln!(
+                f,
+                "Latency: <min: {min}, max: {max}, average: {average}> ms"
+            ))
     }
 }
 
-#[derive(Clone,new)]
+#[derive(Clone, new)]
 pub struct StatsHolder {
     period: Duration,
     #[new(default)]
@@ -59,26 +73,27 @@ pub struct StatsHolder {
     #[new(default)]
     lost_packets: usize,
     #[new(default)]
-    active_connections: IntSet<u64>
-
+    active_connections: IntSet<u64>,
 }
 
 impl Default for StatsHolder {
     fn default() -> Self {
-        StatsHolder { period: Duration::new(10,0), stats_vec: Vec::default(), lost_packets: usize::default(), active_connections:IntSet::default()}
-    }   
+        StatsHolder {
+            period: Duration::new(10, 0),
+            stats_vec: Vec::default(),
+            lost_packets: usize::default(),
+            active_connections: IntSet::default(),
+        }
+    }
 }
 
-
 impl Stats for StatsHolder {
-    fn add_stat(&mut self, recv_time: Instant, send_time:Instant, size: usize, key:u64){
-
+    fn add_stat(&mut self, recv_time: Instant, send_time: Instant, size: usize, key: u64) {
         let latency = send_time.duration_since(recv_time);
 
-        self.stats_vec.push(StatElement{latency,size});
+        self.stats_vec.push(StatElement { latency, size });
 
         self.active_connections.insert(key);
-
     }
 
     fn reset(&mut self) {
@@ -88,38 +103,35 @@ impl Stats for StatsHolder {
     }
 
     fn calculate(&self) -> Option<StatSummary> {
-        if unlikely(self.stats_vec.is_empty()){
-            return None
+        if unlikely(self.stats_vec.is_empty()) {
+            return None;
         }
 
-        let latency = self.stats_vec.iter()
-                                                    .map(|elem| {elem.latency});
+        let latency = self.stats_vec.iter().map(|elem| elem.latency);
 
         let packet_processed = latency.len();
-        
-        let (min_latency, max_latency) = match latency.clone().minmax(){
-            NoElements => (Duration::new(0, 0),Duration::new(0, 0)),
-            OneElement(elem) => (elem,elem),
-            MinMax(min, max) =>(min,max),
+
+        let (min_latency, max_latency) = match latency.clone().minmax() {
+            NoElements => (Duration::new(0, 0), Duration::new(0, 0)),
+            OneElement(elem) => (elem, elem),
+            MinMax(min, max) => (min, max),
         };
 
+        let average_latency =
+            latency.fold(Duration::new(0, 0), |acc, e| acc + e) / packet_processed as u32;
 
-
-        let average_latency = latency.fold(Duration::new(0, 0),|acc, e| acc + e) / packet_processed as u32;
-
-        let mut bandwidth = self.stats_vec.iter()
-                                                .map(|elem| {elem.size})
-                                                .sum::<usize>() as f32;
+        let mut bandwidth = self.stats_vec.iter().map(|elem| elem.size).sum::<usize>() as f32;
 
         bandwidth /= self.period.as_secs() as f32;
 
-
-        Some( StatSummary { bandwidth,
-                            min_latency,
-                            max_latency,
-                            average_latency,
-                            lost_packets: self.lost_packets,
-                            unique_connections: self.active_connections.len()})
+        Some(StatSummary {
+            bandwidth,
+            min_latency,
+            max_latency,
+            average_latency,
+            lost_packets: self.lost_packets,
+            unique_connections: self.active_connections.len(),
+        })
     }
 
     fn calculate_and_reset(&mut self) -> Option<StatSummary> {
@@ -127,17 +139,16 @@ impl Stats for StatsHolder {
         self.reset();
         res
     }
-    
+
     fn add_loss(&mut self) {
         self.lost_packets += 1;
     }
 }
 
-
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 struct StatElement {
     latency: Duration,
-    size: usize
+    size: usize,
 }
 
 #[cfg(test)]
@@ -147,56 +158,53 @@ mod statistics_tests {
     use crate::statistics::*;
 
     #[test]
-    fn test_stats_holder(){
+    fn test_stats_holder() {
         let mut stats: Box<dyn Stats> = Box::new(StatsHolder::default());
         let reference = Instant::now();
 
         stats.add_loss();
 
-        stats.add_stat(
-            reference,
-            reference + Duration::new(2,0),
-            128,
-            1);
+        stats.add_stat(reference, reference + Duration::new(2, 0), 128, 1);
 
         stats.add_stat(
-            reference + Duration::new(3,0),
-            reference + Duration::new(4,0),
+            reference + Duration::new(3, 0),
+            reference + Duration::new(4, 0),
             128,
-            2);
+            2,
+        );
 
         stats.add_stat(
-            reference + Duration::new(4,0),
-            reference + Duration::new(10,0),
+            reference + Duration::new(4, 0),
+            reference + Duration::new(10, 0),
             256,
-            1);
+            1,
+        );
 
         let stats_oracle = StatSummary {
-            bandwidth:512. / 10.,
-            min_latency: Duration::new(1,0),
-            max_latency: Duration::new(6,0),
-            average_latency: Duration::new(3,0),
+            bandwidth: 512. / 10.,
+            min_latency: Duration::new(1, 0),
+            max_latency: Duration::new(6, 0),
+            average_latency: Duration::new(3, 0),
             lost_packets: 1,
-            unique_connections: 2
+            unique_connections: 2,
         };
 
         let stats = stats.calculate_and_reset();
-        assert_ne!(stats,None);
+        assert_ne!(stats, None);
 
         let stats = stats.unwrap();
-        assert_eq!(stats,stats_oracle);
+        assert_eq!(stats, stats_oracle);
 
-        println!("{}",stats);
+        println!("{}", stats);
     }
 }
 
-
 #[derive(new)]
 pub struct StatisticData {
-    recv_time: Instant, 
-    send_time: Instant, 
+    recv_time: Instant,
+    send_time: Instant,
     size: usize,
-    conn_key: u64
+    conn_key: u64,
 }
 
 #[derive(Builder)]
@@ -205,13 +213,13 @@ pub struct StatisticsTask {
     stats_rx: AsyncReceiver<DataTransmitted>,
     #[builder(setter(custom))]
     timeout: Duration,
-    #[builder(private)] 
-    holder: StatsHolder
+    #[builder(private)]
+    holder: StatsHolder,
 }
 
 impl StatisticsTaskBuilder {
-    pub fn timeout(&mut self, stats_interval: u64)  -> &mut Self{
-        let timeout = Duration::new(stats_interval,0);
+    pub fn timeout(&mut self, stats_interval: u64) -> &mut Self {
+        let timeout = Duration::new(stats_interval, 0);
         self.timeout = Some(timeout);
         self.holder = Some(StatsHolder::new(timeout));
         self
@@ -219,13 +227,12 @@ impl StatisticsTaskBuilder {
 }
 
 impl StatisticsTask {
-
     async fn run(mut self) {
         //Arm the timer to produce statistics at regular intervals
         let start = tokio::time::Instant::now() + self.timeout.into();
         let mut timer = interval_at(start, self.timeout.into());
 
-        loop  {
+        loop {
             select! {
                 _ = self.shutdown_token.cancelled() => {
                     info!("Shutting down statistics task");

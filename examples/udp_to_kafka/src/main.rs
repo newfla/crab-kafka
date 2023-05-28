@@ -9,12 +9,12 @@ use tokio::{
 use crab_kafka::{
     forwarder::{Forwarder, ForwarderBuilder, ForwarderShutdownHandle},
     CheckpointStrategies, CheckpointStrategy, PartitionStrategies, PartitionStrategy, Receiver,
-    TransformStrategy, TransformerStrategies,
+    TransformStrategies, TransformStrategy,
 };
 use utilities::{
     env_var::{self, load_env_var, EnvVars},
     logger,
-    logger::*
+    logger::*,
 };
 
 #[global_allocator]
@@ -38,22 +38,21 @@ fn main() {
 
     //Build kafka params map
     let kafka_map = kafka_params_builder_helper(&vars);
-   
+
     //Instantiate a forwarder instance;
     let forwarder = ForwarderBuilder::default()
         .receiver(receiver)
-        .checkpoint_strategy(checkpoint_strategy)
-        .partition_strategy(partition_strategy)
-        .transform_strategy(TransformerStrategies::NoTransform)
+        .checkpoint(checkpoint_strategy)
+        .partition(partition_strategy)
+        .transform(TransformStrategies::NoTransform)
         .kafka_settings(kafka_map)
-        .output_topic(vars.kafka_topic.clone())
+        .topic(vars.kafka_topic.clone())
         .cache_size(vars.cache_size)
         .stats_interval(vars.stats_interval)
         .build()
         .unwrap();
 
     runtime_builder_helper(&vars).block_on(start_receiving(forwarder));
-    
 }
 
 async fn start_receiving<C, P, T>(forwarder: Forwarder<C, P, T>)
@@ -62,7 +61,7 @@ where
     P: PartitionStrategy + Send + 'static,
     T: TransformStrategy + Clone + Send + Sync + 'static,
 {
-    let forwarder_handle: ForwarderShutdownHandle = forwarder.get_handle();
+    let forwarder_handle: ForwarderShutdownHandle = forwarder.shutdown_handle();
 
     select! {
         _ = signal::ctrl_c() => {
