@@ -17,6 +17,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Dependencies
+      run: sudo apt install libsasl2-dev
     - name: Check Style
       run: cargo fmt --check
     - name: Build
