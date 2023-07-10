@@ -16,7 +16,7 @@ pub trait PartitionStrategy {
     /// The returned value is interpreted as: ([`rdkafka::producer::future_producer::FutureRecord::partition`], [`rdkafka::producer::future_producer::FutureRecord::key`], order_key).
     ///
     ///  order_key can guarantee that packets from the same peer are sent to kafka respecting the reception order
-    fn partition(&self, addr: &SocketAddr) -> PartitionDetails;
+    fn partition(&mut self, addr: &SocketAddr) -> PartitionDetails;
 
     /// To store the partition number for the topic specified with [`crate::forwarder::ForwarderBuilder::kafka_settings`]
     fn set_num_partitions(&mut self, partitions: i32);
@@ -52,12 +52,12 @@ pub enum PartitionStrategies {
 }
 
 impl PartitionStrategy for PartitionStrategies {
-    fn partition(&self, addr: &SocketAddr) -> PartitionDetails {
+    fn partition(&mut self, addr: &SocketAddr) -> PartitionDetails {
         match self {
-            PartitionStrategies::None { val } => val.as_ref().unwrap().partition(addr),
-            PartitionStrategies::Random { val } => val.as_ref().unwrap().partition(addr),
-            PartitionStrategies::RoundRobin { val } => val.as_ref().unwrap().partition(addr),
-            PartitionStrategies::StickyRoundRobin { val } => val.as_ref().unwrap().partition(addr),
+            PartitionStrategies::None { val } => val.as_mut().unwrap().partition(addr),
+            PartitionStrategies::Random { val } => val.as_mut().unwrap().partition(addr),
+            PartitionStrategies::RoundRobin { val } => val.as_mut().unwrap().partition(addr),
+            PartitionStrategies::StickyRoundRobin { val } => val.as_mut().unwrap().partition(addr),
         }
     }
 
@@ -98,7 +98,7 @@ pub enum PartitionStrategiesInternal {
 }
 
 impl PartitionStrategy for PartitionStrategiesInternal {
-    fn partition(&self, addr: &SocketAddr) -> PartitionDetails {
+    fn partition(&mut self, addr: &SocketAddr) -> PartitionDetails {
         match self {
             PartitionStrategiesInternal::None => none_partition(addr),
             PartitionStrategiesInternal::Random {
@@ -125,7 +125,7 @@ fn none_partition(addr: &SocketAddr) -> PartitionDetails {
     (None, key, key)
 }
 
-fn random_partition(addr: &SocketAddr, num_partitions: i32, rng: &Rng) -> PartitionDetails {
+fn random_partition(addr: &SocketAddr, num_partitions: i32, rng: &mut Rng) -> PartitionDetails {
     let next = rng.i32(0..num_partitions);
     let addr_str = addr.to_string();
     let key = ustr(&(addr_str.clone() + "|" + &next.to_string()));
