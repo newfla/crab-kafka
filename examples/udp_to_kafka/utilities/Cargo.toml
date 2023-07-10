@@ -7,4 +7,4 @@ edition = "2021"
 log = "0.4"
 simple_logger = "4.0"
 envconfig = "0.10"
-strum = { version = "0.24", features = ["derive"]}
+strum = { version = "0.25", features = ["derive"]}
