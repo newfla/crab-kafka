@@ -68,14 +68,14 @@ fn build_socket(ip: String, port: String) -> SocketAddr {
 
 fn build_udp_framed(ip: String, port: String, buffer_size: usize) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
-        .receiver_type(ReceiverType::UDP)
+        .receiver_type(ReceiverType::Udp)
         .addr(build_socket(ip, port))
         .buffer_size(buffer_size)
 }
 
 fn build_tcp_stream(ip: String, port: String, buffer_size: usize) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
-        .receiver_type(ReceiverType::TCP)
+        .receiver_type(ReceiverType::Tcp)
         .addr(build_socket(ip, port))
         .buffer_size(buffer_size)
 }
@@ -87,7 +87,7 @@ fn build_dtls_framed(
     security: TlsOption,
 ) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
-        .receiver_type(ReceiverType::UDP)
+        .receiver_type(ReceiverType::Udp)
         .addr(build_socket(ip, port))
         .buffer_size(buffer_size)
         .tls_settings(security)
@@ -100,7 +100,7 @@ fn build_tls_stream(
     security: TlsOption,
 ) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
-        .receiver_type(ReceiverType::TCP)
+        .receiver_type(ReceiverType::Tcp)
         .addr(build_socket(ip, port))
         .buffer_size(buffer_size)
         .tls_settings(security)
@@ -136,8 +136,8 @@ impl From<Receiver> for ReceiverTaskBuilder {
 }
 
 pub enum ReceiverType {
-    UDP,
-    TCP,
+    Udp,
+    Tcp,
 }
 
 #[derive(Builder)]
@@ -315,47 +315,6 @@ impl ReceiverTask {
         }
     }
 
-    // async fn tls_stream_run(&self, socket: TcpListener, cert: String, key: String) {
-    //     let certs = Self::load_certs(Path::new(&cert));
-    //     let keys = Self::load_keys(Path::new(&key));
-
-    //     if certs.is_err() || keys.is_err() {
-    //         error!("Tls configuraion failed certs {}, keys {}", certs.is_err(), keys.is_err());
-    //         self.shutdown_token.cancel();
-    //         return ;
-    //     }
-
-    //     debug!("certs: {:?} {:?}",certs, keys);
-
-    //     let config = ServerConfig::builder()
-    //         .with_safe_defaults()
-    //         .with_no_client_auth()
-    //         .with_single_cert(certs.unwrap(), keys.unwrap().remove(0));
-
-    //     if config.is_err() {
-    //         error!("Tls configuraion failed");
-    //         self.shutdown_token.cancel();
-    //         return ;
-    //     }
-
-    //     let acceptor = TlsAcceptor::from(Arc::new(config.unwrap()));
-
-    //     loop {
-    //         select! {
-    //             _ = self.shutdown_token.cancelled() => {
-    //                 info!("Shutting down receiver task");
-    //                 break;
-    //             }
-    //             //Accept new TLS connections
-    //             session = socket.accept() => if let Ok((session,peer)) = session {
-    //                 let acceptor = acceptor.clone();
-    //                 self.handle_tls_session(session,peer,acceptor);
-    //             }
-    //         }
-    //     }
-
-    // }
-
     async fn tls_stream_run(&self, socket: TcpListener, cert: String, key: String) {
         let cert = fs::read(Path::new(&cert));
         let key = fs::read(Path::new(&key));
@@ -441,14 +400,13 @@ impl ReceiverTask {
         setup_context
             .map_err(|err| {
                 error!("{}", err);
-                ()
             })
             .map(|_| ctx.build())
     }
 
     async fn run(self) {
         match &self.receiver_type {
-            ReceiverType::UDP => {
+            ReceiverType::Udp => {
                 //Socket binding handling
                 let socket = UdpSocket::bind(self.addr).await;
                 if let Err(err) = socket {
@@ -466,7 +424,7 @@ impl ReceiverTask {
                     Some((_, _)) => self.error_run(),
                 }
             }
-            ReceiverType::TCP => {
+            ReceiverType::Tcp => {
                 //Socket binding handling
                 let socket = TcpListener::bind(self.addr).await;
                 if let Err(err) = socket {

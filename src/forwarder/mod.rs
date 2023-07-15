@@ -180,9 +180,9 @@ where
         //Schedule task
         let mut task_set = JoinSet::new();
         let mut guard = handle.abort_handle.lock().await;
-        guard.push(task_set.spawn(async move { stat_task.await }));
-        guard.push(task_set.spawn(async move { dispatcher_task.await }));
-        guard.push(task_set.spawn(async move { receiver_task.await }));
+        guard.push(task_set.spawn(stat_task.into_future()));
+        guard.push(task_set.spawn(dispatcher_task.into_future()));
+        guard.push(task_set.spawn(receiver_task.into_future()));
 
         while task_set.join_next().await.is_some() {}
 
