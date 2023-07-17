@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use branches::unlikely;
 use coarsetime::Instant;
 use dashmap::DashMap;
 use derive_builder::Builder;
@@ -85,18 +84,16 @@ where
             let (partition, key, key_hash) = partition_detail;
             let key_hash = key_hash.precomputed_hash();
 
-            if unlikely(!sender_tasks_map.contains_key(&key_hash)) {
-                //Notify from fake previous task
-                let fake_notify = Ticket::default();
-                let _ = sender_tasks_map.insert(key_hash, fake_notify.clone());
-                fake_notify.notify_one();
-            };
-
             //Notify for the next task
             let notify_next = Ticket::default();
-            let notify_prev = sender_tasks_map
-                .insert(key_hash, notify_next.clone())
-                .unwrap();
+            let notify_prev = match sender_tasks_map.insert(key_hash, notify_next.clone()) {
+                Some(prev) => prev,
+                None => {
+                    let fake_notify = Ticket::default();
+                    fake_notify.notify_one();
+                    fake_notify
+                }
+            };
 
             unsafe {
                 let payload =

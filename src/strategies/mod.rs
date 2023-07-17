@@ -139,7 +139,7 @@ fn round_robin_partition(
     start_partition: &AtomicI32,
     num_partitions: i32,
 ) -> PartitionDetails {
-    let next = start_partition.fetch_add(1, Ordering::SeqCst) % num_partitions;
+    let next = start_partition.fetch_add(1, Ordering::Relaxed) % num_partitions;
 
     debug!("SockAddr: {} partition: {}", addr, next);
 
@@ -156,7 +156,7 @@ fn sticky_partition(
     start_partition: &AtomicI32,
     num_partitions: i32,
 ) -> PartitionDetails {
-    let next = start_partition.fetch_add(1, Ordering::SeqCst) % num_partitions;
+    let next = start_partition.fetch_add(1, Ordering::Relaxed) % num_partitions;
 
     let key = ustr(&(addr.to_string() + "|" + &next.to_string()));
     let val = (Some(next), key, key);
