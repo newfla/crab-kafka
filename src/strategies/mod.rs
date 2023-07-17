@@ -128,8 +128,8 @@ fn none_partition(addr: &SocketAddr) -> PartitionDetails {
 fn random_partition(addr: &SocketAddr, num_partitions: i32, rng: &mut Rng) -> PartitionDetails {
     let next = rng.i32(0..num_partitions);
     let addr_str = addr.to_string();
-    let key = ustr(&(addr_str.clone() + "|" + &next.to_string()));
     let order_key = ustr(&addr_str);
+    let key = ustr(&(addr_str + "|" + &next.to_string()));
 
     (Some(next), key, order_key)
 }
@@ -144,8 +144,8 @@ fn round_robin_partition(
     debug!("SockAddr: {} partition: {}", addr, next);
 
     let addr_str = addr.to_string();
-    let key = ustr(&(addr_str.clone() + "|" + &next.to_string()));
     let order_key = ustr(&addr_str);
+    let key = ustr(&(addr_str + "|" + &next.to_string()));
 
     (Some(next), key, order_key)
 }

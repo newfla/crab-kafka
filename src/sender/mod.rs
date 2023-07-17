@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
+use ahash::AHashMap;
 use coarsetime::Instant;
-use dashmap::DashMap;
 use derive_builder::Builder;
 use kanal::AsyncSender;
 use log::debug;
-use nohash_hasher::BuildNoHashHasher;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use tokio::{spawn, sync::OnceCell};
 use ustr::Ustr;
@@ -26,11 +25,8 @@ where
     producer: &'static FutureProducer,
     #[builder(setter(custom))]
     output_topic: &'static str,
-    #[builder(
-        private,
-        default = "Arc::new(DashMap::with_capacity_and_hasher(2, BuildNoHashHasher::default()))"
-    )]
-    sender_tasks_map: Arc<DashMap<u64, Ticket, BuildNoHashHasher<u64>>>,
+    #[builder(private, default = "AHashMap::default()")]
+    sender_tasks_map: AHashMap<u64, Ticket>,
     stats_tx: AsyncSender<DataTransmitted>,
     transform_strategy: Arc<T>,
 }
@@ -76,25 +72,24 @@ where
         let producer = self.producer;
         let output_topic = self.output_topic;
         let stats_tx = self.stats_tx.clone();
-        let sender_tasks_map = self.sender_tasks_map.clone();
         let transform = self.transform_strategy.clone();
 
+        let (payload, (len, addr), recv_time) = packet;
+        let (partition, key, key_hash) = partition_detail;
+        let key_hash = key_hash.precomputed_hash();
+
+        //Notify for the next task
+        let notify_next = Ticket::default();
+        let notify_prev = match self.sender_tasks_map.insert(key_hash, notify_next.clone()) {
+            Some(prev) => prev,
+            None => {
+                let fake_notify = Ticket::default();
+                fake_notify.notify_one();
+                fake_notify
+            }
+        };
+
         spawn(async move {
-            let (payload, (len, addr), recv_time) = packet;
-            let (partition, key, key_hash) = partition_detail;
-            let key_hash = key_hash.precomputed_hash();
-
-            //Notify for the next task
-            let notify_next = Ticket::default();
-            let notify_prev = match sender_tasks_map.insert(key_hash, notify_next.clone()) {
-                Some(prev) => prev,
-                None => {
-                    let fake_notify = Ticket::default();
-                    fake_notify.notify_one();
-                    fake_notify
-                }
-            };
-
             unsafe {
                 let payload =
                     transform.transform(&addr, payload.get_unchecked(..len), &partition_detail.0);
