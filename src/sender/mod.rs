@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use ahash::AHashMap;
 use coarsetime::Instant;
 use derive_builder::Builder;
 use kanal::AsyncSender;
 use log::debug;
+use nohash_hasher::IntMap;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use tokio::{spawn, sync::OnceCell};
 use ustr::Ustr;
@@ -25,8 +25,8 @@ where
     producer: &'static FutureProducer,
     #[builder(setter(custom))]
     output_topic: &'static str,
-    #[builder(private, default = "AHashMap::default()")]
-    sender_tasks_map: AHashMap<u64, Ticket>,
+    #[builder(private, default = "IntMap::default()")]
+    sender_tasks_map: IntMap<u64, Ticket>,
     stats_tx: AsyncSender<DataTransmitted>,
     transform_strategy: Arc<T>,
 }
