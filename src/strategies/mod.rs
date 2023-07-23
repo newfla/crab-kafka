@@ -169,7 +169,7 @@ fn sticky_partition(
 /// Hook to setup per packet forward policy
 pub trait CheckpointStrategy {
     /// Prevents packets to be forwarded in kafka
-    /// data is composed as: (payload, (#valid bytes in payload, source address), recv_time)
+    /// data is composed as: (payload, source address, recv_time)
     fn check(&self, data: (&DataPacket, &Option<i32>)) -> bool;
 }
 

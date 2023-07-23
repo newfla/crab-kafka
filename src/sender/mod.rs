@@ -74,7 +74,7 @@ where
         let stats_tx = self.stats_tx.clone();
         let transform = self.transform_strategy.clone();
 
-        let (payload, (len, addr), recv_time) = packet;
+        let (payload, addr, recv_time) = packet;
         let (partition, key, key_hash) = partition_detail;
         let key_hash = key_hash.precomputed_hash();
 
@@ -90,34 +90,33 @@ where
         };
 
         spawn(async move {
-            unsafe {
-                let payload =
-                    transform.transform(&addr, payload.get_unchecked(..len), &partition_detail.0);
+            let payload = transform.transform(&addr, &payload, &partition_detail.0);
 
-                let mut record = FutureRecord {
-                    topic: output_topic,
-                    partition,
-                    payload: Some(&payload),
-                    key: Some(key.as_str()),
-                    timestamp: None,
-                    headers: None,
-                };
+            let mut record = FutureRecord {
+                topic: output_topic,
+                partition,
+                payload: Some(&payload),
+                key: Some(key.as_str()),
+                timestamp: None,
+                headers: None,
+            };
 
-                debug!("{} bytes with key {} ready to be sent", payload.len(), key);
-                notify_prev.notified().await;
+            debug!("{} bytes with key {} ready to be sent", payload.len(), key);
+            notify_prev.notified().await;
 
-                loop {
-                    match producer.send_result(record) {
-                        Ok(enqueuing_ok) => {
-                            notify_next.notify_one();
-                            match enqueuing_ok.await {
-                                Ok(_) => Self::send_stat(stats_tx, len, recv_time, key_hash).await,
-                                Err(_) => Self::send_data_loss(stats_tx).await,
+            loop {
+                match producer.send_result(record) {
+                    Ok(enqueuing_ok) => {
+                        notify_next.notify_one();
+                        match enqueuing_ok.await {
+                            Ok(_) => {
+                                Self::send_stat(stats_tx, payload.len(), recv_time, key_hash).await
                             }
-                            break;
+                            Err(_) => Self::send_data_loss(stats_tx).await,
                         }
-                        Err((_, rec)) => record = rec,
+                        break;
                     }
+                    Err((_, rec)) => record = rec,
                 }
             }
         });

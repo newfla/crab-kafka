@@ -161,29 +161,49 @@ impl ReceiverTask {
         self.shutdown_token.cancel();
     }
 
+    #[inline]
+    async fn send_to_dispatcher(
+        buf: &[u8],
+        len: usize,
+        addr: SocketAddr,
+        shutdown_token: &CancellationToken,
+        dispatcher_sender: &AsyncSender<DataPacket>,
+    ) {
+        unsafe {
+            if unlikely(
+                dispatcher_sender
+                    .send((buf.get_unchecked(..len).to_vec(), addr, Instant::now()))
+                    .await
+                    .is_err(),
+            ) {
+                error!("Failed to send data to dispatcher");
+                info!("Shutting down receiver task");
+                shutdown_token.cancel();
+            }
+        }
+    }
+
     async fn udp_run(&self, socket: UdpSocket) {
         //Handle incoming UDP packets
         //We don't need to check shutdown_token.cancelled() using select!. Infact, dispatcher_sender.send().is_err() <=> shutdown_token.cancelled()
+        let mut buf = vec![0u8; self.buffer_size];
+        
         loop {
-            let mut buf = Vec::with_capacity(self.buffer_size);
-            match socket.recv_buf_from(&mut buf).await {
+            match socket.recv_from(&mut buf).await {
                 Err(err) => {
                     error!("Socket recv failed. Reason: {}", err);
                     self.shutdown_token.cancel();
                     break;
                 }
-                Ok(data) => {
-                    if unlikely(
-                        self.dispatcher_sender
-                            .send((buf, data, Instant::now()))
-                            .await
-                            .is_err(),
-                    ) {
-                        error!("Failed to send data to dispatcher");
-                        info!("Shutting down receiver task");
-                        self.shutdown_token.cancel();
-                        break;
-                    }
+                Ok((buf_len, addr)) => {
+                    Self::send_to_dispatcher(
+                        &buf,
+                        buf_len,
+                        addr,
+                        &self.shutdown_token,
+                        &self.dispatcher_sender,
+                    )
+                    .await;
                 }
             }
         }
@@ -217,10 +237,10 @@ impl ReceiverTask {
     fn handle_dtls_session(&self, mut session: Session) {
         let dispatcher_sender = self.dispatcher_sender.clone();
         let shutdown_token = self.shutdown_token.clone();
+        let buffer_size = self.buffer_size;
 
-        let mut buf = vec![0u8; self.buffer_size];
-        let peer = session.peer();
         spawn(async move {
+            let mut buf = vec![0u8; buffer_size];
             //Handle incoming UDP packets for each peer
             //session.read.is_err() => closed connection
             //We don't need to check shutdown_token.cancelled() using select!. Infact dispatcher_sender.send().is_err() => shutdown_token.cancelled()
@@ -233,11 +253,7 @@ impl ReceiverTask {
                             break;
                         },
                         Ok(len) => {
-                            if unlikely(dispatcher_sender.send((buf.clone(),(len,peer),Instant::now())).await.is_err()) {
-                                error!("Failed to send data to dispatcher");
-                                shutdown_token.cancel();
-                                break;
-                            }
+                            Self::send_to_dispatcher(&buf, len, session.peer(), &shutdown_token, &dispatcher_sender).await;
                         }
                     }
                 }
@@ -303,11 +319,7 @@ impl ReceiverTask {
                         //Probabily the connection was closed by the peer. Dropping the stream
                         0 => return,
                         _ => {
-                            if unlikely(dispatcher_sender.send((buf.clone(),(len,peer),Instant::now())).await.is_err()) {
-                                error!("Failed to send data to dispatcher");
-                                shutdown_token.cancel();
-                                break;
-                            }
+                            Self::send_to_dispatcher(&buf, len, peer, &shutdown_token, &dispatcher_sender).await;
                         }
                     }
                 }
