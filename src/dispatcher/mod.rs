@@ -36,7 +36,7 @@ where
     P: PartitionStrategy,
     T: TransformStrategy + Send + Sync + 'static,
 {
-    #[inline(always)]
+    #[inline]
     async fn dispatch_packet(&mut self, packet: DataPacket) {
         let partition = self.partition_strategy.partition(&packet.1 .1);
         if !self.checkpoint_strategy.check((&packet, &partition.0)) {

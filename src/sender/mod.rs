@@ -50,7 +50,7 @@ impl<T> KafkaPacketSender<T>
 where
     T: TransformStrategy + Send + Sync + 'static,
 {
-    #[inline(always)]
+    #[inline]
     async fn send_stat(
         stats_tx: AsyncSender<DataTransmitted>,
         len: usize,
@@ -62,12 +62,12 @@ where
         let _ = stats_tx.send(Some(stat)).await;
     }
 
-    #[inline(always)]
+    #[inline]
     async fn send_data_loss(stats_tx: AsyncSender<DataTransmitted>) {
         let _ = stats_tx.send(None).await;
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn send_to_kafka(&mut self, packet: DataPacket, partition_detail: PartitionDetails) {
         let producer = self.producer;
         let output_topic = self.output_topic;
