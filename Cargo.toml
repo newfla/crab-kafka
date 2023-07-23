@@ -1,6 +1,6 @@
 [package]
 name = "crab-kafka"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 authors = ["Flavio Bizzarri <fl.bizzarri@gmail.com>"]
 license = "Apache-2.0"
@@ -16,7 +16,6 @@ log = "0.4"
 derive_builder= "0.12"
 fastrand = "2.0"
 ustr = "0.10"
-dashmap = "5.4.0"
 cached = "0.44"
 byte-unit = "4.0"
 itertools = "0.11"

@@ -128,8 +128,8 @@ fn none_partition(addr: &SocketAddr) -> PartitionDetails {
 fn random_partition(addr: &SocketAddr, num_partitions: i32, rng: &mut Rng) -> PartitionDetails {
     let next = rng.i32(0..num_partitions);
     let addr_str = addr.to_string();
-    let key = ustr(&(addr_str.clone() + "|" + &next.to_string()));
     let order_key = ustr(&addr_str);
+    let key = ustr(&(addr_str + "|" + &next.to_string()));
 
     (Some(next), key, order_key)
 }
@@ -139,13 +139,13 @@ fn round_robin_partition(
     start_partition: &AtomicI32,
     num_partitions: i32,
 ) -> PartitionDetails {
-    let next = start_partition.fetch_add(1, Ordering::SeqCst) % num_partitions;
+    let next = start_partition.fetch_add(1, Ordering::Relaxed) % num_partitions;
 
     debug!("SockAddr: {} partition: {}", addr, next);
 
     let addr_str = addr.to_string();
-    let key = ustr(&(addr_str.clone() + "|" + &next.to_string()));
     let order_key = ustr(&addr_str);
+    let key = ustr(&(addr_str + "|" + &next.to_string()));
 
     (Some(next), key, order_key)
 }
@@ -156,7 +156,7 @@ fn sticky_partition(
     start_partition: &AtomicI32,
     num_partitions: i32,
 ) -> PartitionDetails {
-    let next = start_partition.fetch_add(1, Ordering::SeqCst) % num_partitions;
+    let next = start_partition.fetch_add(1, Ordering::Relaxed) % num_partitions;
 
     let key = ustr(&(addr.to_string() + "|" + &next.to_string()));
     let val = (Some(next), key, key);
@@ -169,7 +169,7 @@ fn sticky_partition(
 /// Hook to setup per packet forward policy
 pub trait CheckpointStrategy {
     /// Prevents packets to be forwarded in kafka
-    /// data is composed as: (payload, (#valid bytes in payload, source address), recv_time)
+    /// data is composed as: (payload, source address, recv_time)
     fn check(&self, data: (&DataPacket, &Option<i32>)) -> bool;
 }
 

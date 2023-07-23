@@ -22,7 +22,7 @@ mod strategies;
 /// Main library module
 pub mod forwarder;
 
-type DataPacket = (Vec<u8>, (usize, SocketAddr), Instant);
+type DataPacket = (Vec<u8>, SocketAddr, Instant);
 type PartitionDetails = (Option<i32>, Ustr, Ustr);
 type Ticket = Arc<Notify>;
 type DataTransmitted = Option<StatisticData>;
