@@ -187,7 +187,7 @@ impl ReceiverTask {
         //Handle incoming UDP packets
         //We don't need to check shutdown_token.cancelled() using select!. Infact, dispatcher_sender.send().is_err() <=> shutdown_token.cancelled()
         let mut buf = vec![0u8; self.buffer_size];
-        
+
         loop {
             match socket.recv_from(&mut buf).await {
                 Err(err) => {
