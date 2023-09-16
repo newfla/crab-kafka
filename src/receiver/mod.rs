@@ -27,21 +27,21 @@ use crate::{DataPacket, TlsOption};
 /// Facilities to receive data from sockets
 #[derive(new)]
 pub enum Receiver {
-    /// Read from socket by [`tokio::net::UdpSocket`], using a buffer with length [`crate::Receiver::UdpFramed::buffer_size`]
+    /// Read from socket by [`UdpSocket`], using a buffer with length [`crate::Receiver::UdpFramed::buffer_size`]
     UdpFramed {
         ip: String,
         port: String,
         buffer_size: usize,
     },
 
-    /// Read from socket by [`tokio::net::TcpStream`], using a buffer with length [`crate::Receiver::TcpStream::buffer_size`]
+    /// Read from socket by [`TcpStream`], using a buffer with length [`crate::Receiver::TcpStream::buffer_size`]
     TcpStream {
         ip: String,
         port: String,
         buffer_size: usize,
     },
 
-    /// Read from socket by [`tokio_dtls_stream_sink::Session`], using a buffer with length [`crate::Receiver::DtlsStream::buffer_size`]
+    /// Read from socket by [`Session`], using a buffer with length [`crate::Receiver::DtlsStream::buffer_size`]
     ///
     /// [`crate::Receiver::DtlsStream::security`] is interpreted as (path to server certificate as PCKS8 file, path to the private key as PCKS8 file)
     DtlsStream {
@@ -185,7 +185,7 @@ impl ReceiverTask {
 
     async fn udp_run(&self, socket: UdpSocket) {
         //Handle incoming UDP packets
-        //We don't need to check shutdown_token.cancelled() using select!. Infact, dispatcher_sender.send().is_err() <=> shutdown_token.cancelled()
+        //We don't need to check shutdown_token.cancelled() using select!. In fact, dispatcher_sender.send().is_err() <=> shutdown_token.cancelled()
         let mut buf = vec![0u8; self.buffer_size];
 
         loop {
@@ -243,7 +243,7 @@ impl ReceiverTask {
             let mut buf = vec![0u8; buffer_size];
             //Handle incoming UDP packets for each peer
             //session.read.is_err() => closed connection
-            //We don't need to check shutdown_token.cancelled() using select!. Infact dispatcher_sender.send().is_err() => shutdown_token.cancelled()
+            //We don't need to check shutdown_token.cancelled() using select!. In fact dispatcher_sender.send().is_err() => shutdown_token.cancelled()
             loop {
                 select! {
                     _ = shutdown_token.cancelled() => break,
@@ -306,7 +306,7 @@ impl ReceiverTask {
         let mut buf = vec![0; buffer_size];
         //Handle incoming TCP packets for each peer
         //session.read.is_err() => closed connection
-        //We don't need to check shutdown_token.cancelled() using select!. Infact dispatcher_sender.send().is_err() => shutdown_token.cancelled()
+        //We don't need to check shutdown_token.cancelled() using select!. In fact dispatcher_sender.send().is_err() => shutdown_token.cancelled()
         loop {
             select! {
                 _ = shutdown_token.cancelled() => break,
@@ -316,7 +316,7 @@ impl ReceiverTask {
                         break;
                     },
                     Ok(len) => match len {
-                        //Probabily the connection was closed by the peer. Dropping the stream
+                        //Probably the connection was closed by the peer. Dropping the stream
                         0 => return,
                         _ => {
                             Self::send_to_dispatcher(&buf, len, peer, &shutdown_token, &dispatcher_sender).await;
@@ -332,7 +332,7 @@ impl ReceiverTask {
         let key = fs::read(Path::new(&key));
         if cert.is_err() || key.is_err() {
             error!(
-                "Tls configuraion failed certs {}, keys {}",
+                "Tls configuration failed certs {}, keys {}",
                 cert.is_err(),
                 key.is_err()
             );
@@ -383,7 +383,7 @@ impl ReceiverTask {
         spawn(async move {
             //Handle incoming TLS packets for each peer
             //session.read.is_err() => closed connection
-            //We don't need to check shutdown_token.cancelled() using select!. Infact dispatcher_sender.send().is_err() => shutdown_token.cancelled()
+            //We don't need to check shutdown_token.cancelled() using select!. In fact dispatcher_sender.send().is_err() => shutdown_token.cancelled()
             match acceptor.accept(stream).await {
                 Err(err) => {
                     error!("Handshake failed. reason {}", err)
@@ -422,7 +422,7 @@ impl ReceiverTask {
                 //Socket binding handling
                 let socket = UdpSocket::bind(self.addr).await;
                 if let Err(err) = socket {
-                    error!("Socket binding failed. Reaseon: {}", err);
+                    error!("Socket binding failed. Reason: {}", err);
                     self.shutdown_token.cancel();
                     return;
                 }
@@ -440,7 +440,7 @@ impl ReceiverTask {
                 //Socket binding handling
                 let socket = TcpListener::bind(self.addr).await;
                 if let Err(err) = socket {
-                    error!("Socket binding failed. Reaseon: {}", err);
+                    error!("Socket binding failed. Reason: {}", err);
                     self.shutdown_token.cancel();
                     return;
                 }

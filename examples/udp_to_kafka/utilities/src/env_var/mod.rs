@@ -133,7 +133,7 @@ pub fn load_env_var() -> Option<EnvVars> {
 mod env_var_tests {
     use crate::env_var::{load_env_var, PartitionStrategy};
 
-    //Running positive and negative case togheter to avoid issue with logger mut static var
+    //Running positive and negative case together to avoid issue with logger mut static var
     #[test]
     fn test_env() {
         let mut vars = load_env_var();
