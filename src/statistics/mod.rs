@@ -88,6 +88,10 @@ impl Default for StatsHolder {
 }
 
 impl Stats for StatsHolder {
+    fn add_loss(&mut self) {
+        self.lost_packets += 1;
+    }
+
     fn add_stat(&mut self, recv_time: Instant, send_time: Instant, size: usize, key: u64) {
         let latency = send_time.duration_since(recv_time);
 
@@ -96,10 +100,10 @@ impl Stats for StatsHolder {
         self.active_connections.insert(key);
     }
 
-    fn reset(&mut self) {
-        self.stats_vec.clear();
-        self.lost_packets = usize::default();
-        self.active_connections.clear();
+    fn calculate_and_reset(&mut self) -> Option<StatSummary> {
+        let res = self.calculate();
+        self.reset();
+        res
     }
 
     fn calculate(&self) -> Option<StatSummary> {
@@ -134,14 +138,10 @@ impl Stats for StatsHolder {
         })
     }
 
-    fn calculate_and_reset(&mut self) -> Option<StatSummary> {
-        let res = self.calculate();
-        self.reset();
-        res
-    }
-
-    fn add_loss(&mut self) {
-        self.lost_packets += 1;
+    fn reset(&mut self) {
+        self.stats_vec.clear();
+        self.lost_packets = usize::default();
+        self.active_connections.clear();
     }
 }
 

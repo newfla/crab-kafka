@@ -108,7 +108,7 @@ fn checkpoint_strategy_builder_helper(vars: &EnvVars) -> CheckpointStrategies {
 
 fn partition_strategy_builder_helper(vars: &EnvVars) -> PartitionStrategies {
     info!(
-        "Selected Partion Strategy: {}",
+        "Selected Partition Strategy: {}",
         vars.kafka_partition_strategy()
     );
 

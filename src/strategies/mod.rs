@@ -22,7 +22,7 @@ pub trait PartitionStrategy {
     fn set_num_partitions(&mut self, partitions: i32);
 }
 
-/// Facilities to distributes messages across topic partions
+/// Facilities to distributes messages across topic partitions
 ///
 /// Use the enum variants to construct the strategy
 #[derive(new)]
@@ -42,7 +42,7 @@ pub enum PartitionStrategies {
         #[new(default)]
         val: Option<PartitionStrategiesInternal>,
     },
-    /// Packets coming from the same peer are guaranted to be sent on the same partition.
+    /// Packets coming from the same peer are guaranteed to be sent on the same partition.
     ///
     /// Partitions are assigned to peers using a round robin schema.
     StickyRoundRobin {
@@ -202,7 +202,7 @@ pub trait TransformStrategy {
 /// Facilities to alter the network payload before sending it to Kafka
 #[derive(Clone)]
 pub enum TransformStrategies {
-    /// Return payload without modification as [`std::vec::Vec<u8>`]
+    /// Return payload without modification as [`Vec<u8>`]
     NoTransform,
 }
 

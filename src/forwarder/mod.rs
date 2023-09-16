@@ -34,7 +34,7 @@ type AbortHandleForwarder = Arc<tokio::sync::Mutex<Vec<AbortHandle>>>;
 
 static GLOBAL_HANDLE: OnceCell<GlobalForwarder> = OnceCell::const_new();
 
-/// Send an orderly shutdown signal to all [`crate::forwarder::Forwarder`] instances
+/// Send an orderly shutdown signal to all [`Forwarder`] instances
 pub fn shutdown_all() {
     if !GLOBAL_HANDLE.initialized() {
         return;
@@ -45,7 +45,7 @@ pub fn shutdown_all() {
     }
 }
 
-/// Abort all instances of [`crate::forwarder::Forwarder`] without waiting their orderly shutdown
+/// Abort all instances of [`Forwarder`] without waiting their orderly shutdown
 pub fn abort_all() {
     if !GLOBAL_HANDLE.initialized() {
         return;
@@ -54,7 +54,7 @@ pub fn abort_all() {
     GLOBAL_HANDLE.get().unwrap().lock().unwrap().clear();
 }
 
-/// Handle to order an orderly shutdown to the referenced [`crate::forwarder::Forwarder`] instance
+/// Handle to order an orderly shutdown to the referenced [`Forwarder`] instance
 #[derive(Default, Clone)]
 pub struct ForwarderShutdownHandle {
     cancel_token: CancellationToken,
@@ -62,7 +62,7 @@ pub struct ForwarderShutdownHandle {
 }
 
 impl ForwarderShutdownHandle {
-    /// Send an orderly shutdown signal to the referenced [`crate::forwarder::Forwarder`] instance
+    /// Send an orderly shutdown signal to the referenced [`Forwarder`] instance
     pub fn shutdown(&self) {
         self.cancel_token.cancel();
     }
@@ -104,7 +104,7 @@ impl Index<ForwarderId> for Vec<ForwarderShutdownHandle> {
     }
 }
 
-/// A single forwarder instance. Must be built using [`crate::forwarder::ForwarderBuilder`]
+/// A single forwarder instance. Must be built using [`ForwarderBuilder`]
 #[derive(Builder)]
 #[builder(pattern = "owned")]
 pub struct Forwarder<C, P, T>
@@ -154,7 +154,7 @@ where
 
         self.partition.set_num_partitions(partitions_count);
 
-        //Istantiate tasks
+        //Instantiate tasks
         let stat_task = StatisticsTaskBuilder::default()
             .shutdown_token(handle.cancel_token.clone())
             .stats_rx(stats_rx)
