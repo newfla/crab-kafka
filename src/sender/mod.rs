@@ -6,7 +6,7 @@ use kanal::AsyncSender;
 use log::debug;
 use nohash_hasher::IntMap;
 use rdkafka::producer::{FutureProducer, FutureRecord};
-use tokio::{spawn, sync::OnceCell};
+use tokio::spawn;
 use ustr::Ustr;
 
 use crate::{
@@ -14,15 +14,12 @@ use crate::{
     TransformStrategy,
 };
 
-static ONCE_PRODUCER: OnceCell<FutureProducer> = OnceCell::const_new();
-
 #[derive(Builder)]
 pub struct KafkaPacketSender<T>
 where
     T: TransformStrategy,
 {
-    #[builder(setter(custom))]
-    producer: &'static FutureProducer,
+    producer: FutureProducer,
     #[builder(setter(custom))]
     output_topic: &'static str,
     #[builder(private, default = "IntMap::default()")]
@@ -34,12 +31,6 @@ impl<T> KafkaPacketSenderBuilder<T>
 where
     T: TransformStrategy,
 {
-    pub fn producer(&mut self, producer: FutureProducer) -> &mut Self {
-        let _ = ONCE_PRODUCER.set(producer);
-        self.producer = ONCE_PRODUCER.get();
-        self
-    }
-
     pub fn output_topic(&mut self, output_topic: Ustr) -> &mut Self {
         self.output_topic = Some(output_topic.as_str());
         self
@@ -69,7 +60,7 @@ where
 
     #[inline]
     pub fn send_to_kafka(&mut self, packet: DataPacket, partition_detail: PartitionDetails) {
-        let producer = self.producer;
+        let producer = self.producer.clone();
         let output_topic = self.output_topic;
         let stats_tx = self.stats_tx.clone();
         let transform = self.transform_strategy.clone();
@@ -90,13 +81,13 @@ where
         };
 
         spawn(async move {
-            let payload = transform.transform(&addr, &payload, &partition_detail.0);
+            let payload = transform.transform(&addr, &payload, &partition);
 
             let mut record = FutureRecord {
                 topic: output_topic,
                 partition,
                 payload: Some(&payload),
-                key: Some(key.as_str()),
+                key: Some(key.as_bytes()),
                 timestamp: None,
                 headers: None,
             };

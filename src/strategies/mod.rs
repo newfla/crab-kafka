@@ -28,95 +28,75 @@ pub trait PartitionStrategy {
 #[derive(new)]
 pub enum PartitionStrategies {
     /// Let the broker to decide the partition
-    None {
-        #[new(default)]
-        val: Option<PartitionStrategiesInternal>,
-    },
+    None,
     /// Assign a random partition for each packet
     Random {
         #[new(default)]
-        val: Option<PartitionStrategiesInternal>,
+        rng: Rng,
+        #[new(default)]
+        num_partitions: i32,
     },
     /// Packets are distributed over partitions using a round robin schema
     RoundRobin {
         #[new(default)]
-        val: Option<PartitionStrategiesInternal>,
+        start_partition: AtomicI32,
+        #[new(default)]
+        num_partitions: i32,
     },
     /// Packets coming from the same peer are guaranteed to be sent on the same partition.
     ///
     /// Partitions are assigned to peers using a round robin schema.
     StickyRoundRobin {
         #[new(default)]
-        val: Option<PartitionStrategiesInternal>,
+        start_partition: AtomicI32,
+        #[new(default)]
+        num_partitions: i32,
     },
 }
 
 impl PartitionStrategy for PartitionStrategies {
     fn partition(&mut self, addr: &SocketAddr) -> PartitionDetails {
         match self {
-            PartitionStrategies::None { val } => val.as_mut().unwrap().partition(addr),
-            PartitionStrategies::Random { val } => val.as_mut().unwrap().partition(addr),
-            PartitionStrategies::RoundRobin { val } => val.as_mut().unwrap().partition(addr),
-            PartitionStrategies::StickyRoundRobin { val } => val.as_mut().unwrap().partition(addr),
-        }
-    }
-
-    fn set_num_partitions(&mut self, partitions: i32) {
-        match self {
-            PartitionStrategies::None { val } => val.insert(PartitionStrategiesInternal::None),
-            PartitionStrategies::Random { val } => {
-                val.insert(PartitionStrategiesInternal::new_random(partitions))
-            }
-            PartitionStrategies::RoundRobin { val } => {
-                val.insert(PartitionStrategiesInternal::new_round_robin(partitions))
-            }
-            PartitionStrategies::StickyRoundRobin { val } => val.insert(
-                PartitionStrategiesInternal::new_sticky_round_robin(partitions),
-            ),
-        };
-    }
-}
-
-#[derive(new)]
-pub enum PartitionStrategiesInternal {
-    None,
-    Random {
-        #[new(default)]
-        rng: Rng,
-        num_partitions: i32,
-    },
-    RoundRobin {
-        #[new(value = "AtomicI32::new(fastrand::i32(0..num_partitions))")]
-        start_partition: AtomicI32,
-        num_partitions: i32,
-    },
-    StickyRoundRobin {
-        #[new(value = "AtomicI32::new(fastrand::i32(0..num_partitions))")]
-        start_partition: AtomicI32,
-        num_partitions: i32,
-    },
-}
-
-impl PartitionStrategy for PartitionStrategiesInternal {
-    fn partition(&mut self, addr: &SocketAddr) -> PartitionDetails {
-        match self {
-            PartitionStrategiesInternal::None => none_partition(addr),
-            PartitionStrategiesInternal::Random {
+            PartitionStrategies::None => none_partition(addr),
+            PartitionStrategies::Random {
                 rng,
                 num_partitions,
             } => random_partition(addr, *num_partitions, rng),
-            PartitionStrategiesInternal::RoundRobin {
+            PartitionStrategies::RoundRobin {
                 start_partition,
                 num_partitions,
             } => round_robin_partition(addr, start_partition, *num_partitions),
-            PartitionStrategiesInternal::StickyRoundRobin {
+            PartitionStrategies::StickyRoundRobin {
                 start_partition,
                 num_partitions,
             } => sticky_partition(addr, start_partition, *num_partitions),
         }
     }
 
-    fn set_num_partitions(&mut self, _partitions: i32) {}
+    fn set_num_partitions(&mut self, partitions: i32) {
+        match self {
+            PartitionStrategies::None => (),
+            PartitionStrategies::Random {
+                rng: _,
+                num_partitions,
+            } => *num_partitions = partitions,
+
+            PartitionStrategies::RoundRobin {
+                start_partition,
+                num_partitions,
+            } => {
+                *start_partition = AtomicI32::new(fastrand::i32(0..partitions));
+                *num_partitions = partitions
+            }
+            PartitionStrategies::StickyRoundRobin {
+                start_partition,
+                num_partitions,
+            } => {
+                *start_partition = AtomicI32::new(fastrand::i32(0..partitions));
+                *num_partitions = partitions
+            }
+        };
+    }
 }
 
 #[cached(key = "SocketAddr", convert = r#"{ *addr }"#, sync_writes = true)]
