@@ -5,7 +5,7 @@ use std::{
 };
 
 use branches::unlikely;
-use byte_unit::Byte;
+use byte_unit::{Byte, UnitType};
 use coarsetime::{Duration, Instant};
 use derive_builder::Builder;
 use derive_new::new;
@@ -46,8 +46,9 @@ impl Display for StatSummary {
         let average = self.average_latency.as_millis();
 
         let bandwidth = self.bandwidth * 8.;
-        let bandwidth = Byte::from_bytes(bandwidth as u128)
-            .get_appropriate_unit(false)
+        let bandwidth = Byte::from_f32(bandwidth)
+            .unwrap_or_default()
+            .get_appropriate_unit(UnitType::Decimal)
             .to_string();
         let bandwidth = &bandwidth[0..bandwidth.len() - 1];
 
