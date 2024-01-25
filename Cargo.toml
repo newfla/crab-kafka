@@ -13,7 +13,7 @@ categories = ["network-programming", "asynchronous"]
 
 [dependencies]
 log = "0.4"
-derive_builder= "0.12"
+derive_builder= "0.13"
 fastrand = "2.0"
 ustr = "0.10"
 cached = "0.47"
