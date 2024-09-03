@@ -55,7 +55,7 @@ where
 
                  data = self.dispatcher_receiver.recv() => {
                      if let Ok(pkt) = data  {
-                         DispatcherTask::dispatch_packet(&mut self, pkt).await;
+                        self.dispatch_packet(pkt).await;
                      }
                  }
             }
