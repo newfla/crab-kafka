@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs,
     future::{Future, IntoFuture},
     net::SocketAddr,
@@ -13,6 +14,7 @@ use derive_new::new;
 use kanal::AsyncSender;
 use log::{debug, error, info};
 use openssl::ssl::{SslContext, SslFiletype, SslMethod};
+use socket2::{Domain, Protocol, Socket, Type};
 use tokio::{
     io::{AsyncRead, AsyncReadExt},
     net::{TcpListener, TcpStream, UdpSocket},
@@ -29,6 +31,13 @@ use crate::{DataPacket, TlsOption};
 pub enum Receiver {
     /// Read from socket by [`UdpSocket`], using a buffer with length [`crate::Receiver::UdpFramed::buffer_size`]
     UdpFramed {
+        ip: String,
+        port: String,
+        buffer_size: usize,
+    },
+
+    /// Read from socket by [`UdpSocket`], using a buffer with length [`crate::Receiver::UdpFramed::buffer_size`] and connecting socket to peer
+    UdpConnected {
         ip: String,
         port: String,
         buffer_size: usize,
@@ -69,6 +78,13 @@ fn build_socket(ip: String, port: String) -> SocketAddr {
 fn build_udp_framed(ip: String, port: String, buffer_size: usize) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
         .receiver_type(ReceiverType::Udp)
+        .addr(build_socket(ip, port))
+        .buffer_size(buffer_size)
+}
+
+fn build_udp_connected(ip: String, port: String, buffer_size: usize) -> ReceiverTaskBuilder {
+    ReceiverTaskBuilder::default()
+        .receiver_type(ReceiverType::UdpConnected)
         .addr(build_socket(ip, port))
         .buffer_size(buffer_size)
 }
@@ -114,6 +130,11 @@ impl From<Receiver> for ReceiverTaskBuilder {
                 port,
                 buffer_size,
             } => build_udp_framed(ip, port, buffer_size),
+            Receiver::UdpConnected {
+                ip,
+                port,
+                buffer_size,
+            } => build_udp_connected(ip, port, buffer_size),
             Receiver::DtlsStream {
                 ip,
                 port,
@@ -137,6 +158,7 @@ impl From<Receiver> for ReceiverTaskBuilder {
 
 pub enum ReceiverType {
     Udp,
+    UdpConnected,
     Tcp,
 }
 
@@ -196,6 +218,63 @@ impl ReceiverTask {
                     break;
                 }
                 Ok((buf_len, addr)) => {
+                    Self::send_to_dispatcher(
+                        &buf,
+                        buf_len,
+                        addr,
+                        &self.shutdown_token,
+                        &self.dispatcher_sender,
+                    )
+                    .await;
+                }
+            }
+        }
+    }
+
+    async fn udp_connected_run(&self, socket: UdpSocket) {
+        //Handle incoming UDP packets
+        //We don't need to check shutdown_token.cancelled() using select!. In fact, dispatcher_sender.send().is_err() <=> shutdown_token.cancelled()
+        let mut buf = vec![0u8; self.buffer_size];
+        let mut map = HashSet::new();
+        loop {
+            match socket.recv_from(&mut buf).await {
+                Err(err) => {
+                    error!("Socket recv failed. Reason: {}", err);
+                    self.shutdown_token.cancel();
+                    break;
+                }
+                Ok((buf_len, addr)) => {
+                    if !map.contains(&addr) {
+                        let shutdown_token = self.shutdown_token.clone();
+                        let dispatcher_sender = self.dispatcher_sender.clone();
+                        let buffer_size = self.buffer_size;
+                        let socket = Self::build_udp_socket_reuse_addr_port(&self.addr).unwrap();
+                        socket.connect(addr).await.unwrap();
+                        map.insert(addr);
+                        spawn(async move {
+                            let mut buf = vec![0u8; buffer_size];
+                            loop {
+                                match socket.recv(&mut buf).await {
+                                    Err(err) => {
+                                        error!("Socket recv failed. Reason: {}", err);
+                                        shutdown_token.cancel();
+                                        break;
+                                    }
+                                    Ok(buf_len) => {
+                                        Self::send_to_dispatcher(
+                                            &buf,
+                                            buf_len,
+                                            addr,
+                                            &shutdown_token,
+                                            &dispatcher_sender,
+                                        )
+                                        .await;
+                                    }
+                                }
+                            }
+                        });
+                    }
+
                     Self::send_to_dispatcher(
                         &buf,
                         buf_len,
@@ -416,6 +495,31 @@ impl ReceiverTask {
             .map(|_| ctx.build())
     }
 
+    fn build_udp_socket_reuse_addr_port(addr: &SocketAddr) -> Result<UdpSocket, ()> {
+        let address = (*addr).into();
+
+        let socket =
+            Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).map_err(|err| {
+                error!("{}", err);
+            })?;
+        socket.set_reuse_address(true).map_err(|err| {
+            error!("{}", err);
+        })?;
+        socket.set_reuse_port(true).map_err(|err| {
+            error!("{}", err);
+        })?;
+        socket.bind(&address).map_err(|err| {
+            error!("{}", err);
+        })?;
+        let std_sock: std::net::UdpSocket = socket.into();
+        std_sock.set_nonblocking(true).map_err(|err| {
+            error!("{}", err);
+        })?;
+        UdpSocket::from_std(std_sock).map_err(|err| {
+            error!("{}", err);
+        })
+    }
+
     async fn run(self) {
         match &self.receiver_type {
             ReceiverType::Udp => {
@@ -435,6 +539,19 @@ impl ReceiverTask {
                     }
                     Some((_, _)) => self.error_run(),
                 }
+            }
+            ReceiverType::UdpConnected => {
+                //Socket binding handling
+                let socket = Self::build_udp_socket_reuse_addr_port(&self.addr);
+                //let socket = UdpSocket::bind(self.addr).await;
+                if socket.is_err() {
+                    error!("Socket binding failed.");
+                    self.shutdown_token.cancel();
+                    return;
+                }
+
+                let socket = socket.unwrap();
+                self.udp_connected_run(socket).await;
             }
             ReceiverType::Tcp => {
                 //Socket binding handling

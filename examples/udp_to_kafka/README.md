@@ -12,6 +12,7 @@ __'\*'__: only available when _KAFKA_PARTITION_STRATEGY_ is set to _RANDOM, ROUN
 ### Server Side:
   - **LISTEN_IP**: [default = 127.0.0.1]
   - **LISTEN_PORT**:  [default = 8888]
+  - **USE_UDP_CONNECTED**: [default = false]
   - **USE_DTLS**: [default = false],
   - **SERVER_KEY**: path to the private key for TLS encryption (PEM format)
   - **SERVER_CERT**: path to the certificate or certificate chain used by the server (PEM format)

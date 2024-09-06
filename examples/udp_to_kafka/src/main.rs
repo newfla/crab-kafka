@@ -81,7 +81,9 @@ fn receiver_builder_helper(vars: &EnvVars) -> Receiver {
 
     let buffer_size = vars.buffer_size;
 
-    if !vars.use_dtls {
+    if vars.use_udp_connected {
+        Receiver::new_udp_connected(ip, port, buffer_size)
+    } else if !vars.use_dtls {
         Receiver::new_udp_framed(ip, port, buffer_size)
     } else {
         Receiver::new_dtls_stream(
