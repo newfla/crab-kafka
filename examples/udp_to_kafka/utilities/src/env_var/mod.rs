@@ -45,6 +45,9 @@ pub struct EnvVars {
     #[envconfig(from = "LISTEN_PORT", default = "8888")]
     pub listen_port: u16,
 
+    #[envconfig(from = "USE_UDP_CONNECTED", default = "false")]
+    pub use_udp_connected: bool,
+
     #[envconfig(from = "USE_DTLS", default = "false")]
     pub use_dtls: bool,
 
