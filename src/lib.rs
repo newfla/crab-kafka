@@ -26,5 +26,4 @@ type DataPacket = (Vec<u8>, SocketAddr, Instant);
 type PartitionDetails = (Option<i32>, Ustr, Ustr);
 type Ticket = Arc<Notify>;
 type DataTransmitted = Option<StatisticData>;
-type ForwarderReturn = Result<(), String>;
 type TlsOption = (Option<String>, Option<String>);

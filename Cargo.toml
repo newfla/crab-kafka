@@ -31,6 +31,7 @@ tokio-native-tls = "0.3"
 tokio-dtls-stream-sink = "0.6"
 openssl = { version = "0.10", features = ["vendored"] }
 socket2 = "0.5.7"
+anyhow = "1.0.88"
 
 [dev-dependencies]
 mimalloc = { version = "0.1", default-features = false }

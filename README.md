@@ -19,6 +19,7 @@ Based on [tokio](https://github.com/tokio-rs/tokio) and [rust rdkafka](https://g
 It's strongly encouraged the use of alternative allocator like [MiMalloc](https://crates.io/crates/mimalloc)
 
 ```no_run
+use anyhow::Result;
 use std::collections::HashMap;
 use mimalloc::MiMalloc;
 use crab_kafka::{forwarder::ForwarderBuilder,Receiver,PartitionStrategies,CheckpointStrategies,TransformStrategies};
@@ -27,7 +28,7 @@ use crab_kafka::{forwarder::ForwarderBuilder,Receiver,PartitionStrategies,Checkp
 static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
-async fn main() -> Result<(),String> {
+async fn main() -> Result<()> {
     ForwarderBuilder::default()
     .receiver(Receiver::new_tcp_stream("127.0.0.1".to_owned(), "8888".to_owned(), 2000))
     .checkpoint(CheckpointStrategies::OpenDoors)
