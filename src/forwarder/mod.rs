@@ -75,7 +75,7 @@ impl Drop for ForwarderShutdownHandle {
         self.abort_handle
             .blocking_lock()
             .iter()
-            .for_each(|handle| handle.abort())
+            .for_each(AbortHandle::abort)
     }
 }
 
@@ -110,9 +110,9 @@ impl Index<ForwarderId> for Vec<ForwarderShutdownHandle> {
 #[builder(pattern = "owned")]
 pub struct Forwarder<C, P, T>
 where
-    C: CheckpointStrategy,
-    P: PartitionStrategy,
-    T: TransformStrategy,
+    C: CheckpointStrategy + Send + 'static,
+    P: PartitionStrategy + Send + 'static,
+    T: TransformStrategy + Clone + Send + Sync + 'static,
 {
     receiver: Receiver,
     partition: P,
@@ -134,7 +134,7 @@ where
 {
     async fn run(mut self) -> Result<()> {
         let producer = self.build_kafka_producer()?;
-        let partitions_count = self.find_partition_number(&producer)? as i32;
+        let partitions_count = i32::try_from(self.find_partition_number(&producer)?)?;
 
         //Get handle
         let handle = self.shutdown_handle();
@@ -180,6 +180,7 @@ where
         guard.push(task_set.spawn(stat_task.into_future()));
         guard.push(task_set.spawn(dispatcher_task.into_future()));
         guard.push(task_set.spawn(receiver_task.into_future()));
+        drop(guard);
 
         while task_set.join_next().await.is_some() {}
 
@@ -210,10 +211,10 @@ where
         let topics = metadata
             .topics()
             .first()
-            .map(|m| m.partitions().len())
-            .ok_or(anyhow!("Topic {} not found", topic_name));
+            .map(|topic_metadata| topic_metadata.partitions().len())
+            .ok_or_else(|| anyhow!("Topic {} not found", topic_name));
 
-        if let Ok(0) = topics {
+        if matches!(topics, Ok(0)) {
             Err(anyhow!("Topic has 0 partitions"))
         } else {
             topics

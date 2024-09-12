@@ -72,28 +72,28 @@ pub enum Receiver {
     },
 }
 
-fn build_socket(ip: String, port: String) -> SocketAddr {
+fn build_socket_addr(ip: String, port: String) -> SocketAddr {
     (ip + ":" + &port).parse().unwrap()
 }
 
 fn build_udp_framed(ip: String, port: String, buffer_size: usize) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
         .receiver_type(ReceiverType::Udp)
-        .addr(build_socket(ip, port))
+        .addr(build_socket_addr(ip, port))
         .buffer_size(buffer_size)
 }
 
 fn build_udp_connected(ip: String, port: String, buffer_size: usize) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
         .receiver_type(ReceiverType::UdpConnected)
-        .addr(build_socket(ip, port))
+        .addr(build_socket_addr(ip, port))
         .buffer_size(buffer_size)
 }
 
 fn build_tcp_stream(ip: String, port: String, buffer_size: usize) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
         .receiver_type(ReceiverType::Tcp)
-        .addr(build_socket(ip, port))
+        .addr(build_socket_addr(ip, port))
         .buffer_size(buffer_size)
 }
 
@@ -105,7 +105,7 @@ fn build_dtls_framed(
 ) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
         .receiver_type(ReceiverType::Udp)
-        .addr(build_socket(ip, port))
+        .addr(build_socket_addr(ip, port))
         .buffer_size(buffer_size)
         .tls_settings(security)
 }
@@ -118,7 +118,7 @@ fn build_tls_stream(
 ) -> ReceiverTaskBuilder {
     ReceiverTaskBuilder::default()
         .receiver_type(ReceiverType::Tcp)
-        .addr(build_socket(ip, port))
+        .addr(build_socket_addr(ip, port))
         .buffer_size(buffer_size)
         .tls_settings(security)
 }
@@ -466,7 +466,7 @@ impl ReceiverTask {
             //We don't need to check shutdown_token.cancelled() using select!. In fact dispatcher_sender.send().is_err() => shutdown_token.cancelled()
             match acceptor.accept(stream).await {
                 Err(err) => {
-                    error!("Handshake failed. reason {}", err)
+                    error!("Handshake failed. reason {}", err);
                 }
                 Ok(stream) => {
                     Self::common_handle_tcp_session(
