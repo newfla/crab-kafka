@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::{anyhow, Result};
 use derive_builder::Builder;
 use kanal::{bounded_async, unbounded_async};
 use rdkafka::{
@@ -26,7 +27,7 @@ use crate::{
     sender::KafkaPacketSenderBuilder,
     statistics::StatisticsTaskBuilder,
     strategies::{CheckpointStrategy, PartitionStrategy},
-    ForwarderReturn, Receiver, TransformStrategy,
+    Receiver, TransformStrategy,
 };
 
 type GlobalForwarder = Mutex<Vec<ForwarderShutdownHandle>>;
@@ -131,7 +132,7 @@ where
     P: PartitionStrategy + Send + 'static,
     T: TransformStrategy + Clone + Send + Sync + 'static,
 {
-    async fn run(mut self) -> ForwarderReturn {
+    async fn run(mut self) -> Result<()> {
         let producer = self.build_kafka_producer()?;
         let partitions_count = self.find_partition_number(&producer)? as i32;
 
@@ -149,8 +150,7 @@ where
             .output_topic(ustr(&self.topic))
             .stats_tx(stats_tx)
             .transform_strategy(Arc::new(self.transform))
-            .build()
-            .map_err(|err| err.to_string())?;
+            .build()?;
 
         self.partition.set_num_partitions(partitions_count);
 
@@ -159,14 +159,12 @@ where
             .shutdown_token(handle.cancel_token.clone())
             .stats_rx(stats_rx)
             .timeout(self.stats_interval)
-            .build()
-            .map_err(|err| err.to_string())?;
+            .build()?;
 
         let receiver_task = ReceiverTaskBuilder::from(self.receiver)
             .shutdown_token(handle.cancel_token.clone())
             .dispatcher_sender(dispatcher_tx)
-            .build()
-            .map_err(|err| err.to_string())?;
+            .build()?;
 
         let dispatcher_task = DispatcherTaskBuilder::default()
             .shutdown_token(handle.cancel_token.clone())
@@ -174,8 +172,7 @@ where
             .checkpoint_strategy(self.checkpoint)
             .partition_strategy(self.partition)
             .kafka_sender(kafka_sender)
-            .build()
-            .map_err(|err| err.to_string())?;
+            .build()?;
 
         //Schedule task
         let mut task_set = JoinSet::new();
@@ -194,30 +191,32 @@ where
         GLOBAL_HANDLE.get().unwrap().lock().unwrap()[self.id].clone()
     }
 
-    fn build_kafka_producer(&self) -> Result<FutureProducer, String> {
+    fn build_kafka_producer(&self) -> Result<FutureProducer> {
         let mut client_config = ClientConfig::new();
         self.kafka_settings.iter().for_each(|(key, value)| {
             client_config.set(key, value);
         });
-        client_config.create().map_err(|err| err.to_string())
+        let producer = client_config.create()?;
+        Ok(producer)
     }
 
-    fn find_partition_number(&self, producer: &FutureProducer) -> Result<usize, String> {
+    fn find_partition_number(&self, producer: &FutureProducer) -> Result<usize> {
         let topic_name = self.topic.as_str();
         let timeout = Duration::from_secs(30);
 
-        match producer.client().fetch_metadata(Some(topic_name), timeout) {
-            Err(_) => Err("Failed to retrieve topic metadata".to_string()),
-            Ok(metadata) => match metadata.topics().first() {
-                None => Err("Topic".to_string() + topic_name + "not found"),
-                Some(data) => {
-                    if data.partitions().is_empty() {
-                        Err("Topic has 0 partitions".to_string())
-                    } else {
-                        Ok(data.partitions().len())
-                    }
-                }
-            },
+        let metadata = producer
+            .client()
+            .fetch_metadata(Some(topic_name), timeout)?;
+        let topics = metadata
+            .topics()
+            .first()
+            .map(|m| m.partitions().len())
+            .ok_or(anyhow!("Topic {} not found", topic_name));
+
+        if let Ok(0) = topics {
+            Err(anyhow!("Topic has 0 partitions"))
+        } else {
+            topics
         }
     }
 }
@@ -228,7 +227,7 @@ where
     P: PartitionStrategy + Send + 'static,
     T: TransformStrategy + Clone + Send + Sync + 'static,
 {
-    type Output = ForwarderReturn;
+    type Output = Result<()>;
     type IntoFuture = Pin<Box<dyn Future<Output = Self::Output> + Send>>;
 
     fn into_future(self) -> Self::IntoFuture {

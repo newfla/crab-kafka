@@ -7,6 +7,7 @@ use std::{
     pin::Pin,
 };
 
+use anyhow::Result;
 use branches::unlikely;
 use coarsetime::Instant;
 use derive_builder::Builder;
@@ -481,43 +482,26 @@ impl ReceiverTask {
         });
     }
 
-    fn build_openssl_context(cert: String, key: String) -> Result<SslContext, ()> {
-        let mut ctx = SslContext::builder(SslMethod::dtls()).unwrap();
+    fn build_openssl_context(cert: String, key: String) -> Result<SslContext> {
+        let mut ctx_builder = SslContext::builder(SslMethod::dtls())?;
 
-        let setup_context = ctx
-            .set_private_key_file(key, SslFiletype::PEM)
-            .and_then(|_| ctx.set_certificate_chain_file(cert))
-            .and_then(|_| ctx.check_private_key());
-        setup_context
-            .map_err(|err| {
-                error!("{}", err);
-            })
-            .map(|_| ctx.build())
+        ctx_builder.set_private_key_file(key, SslFiletype::PEM)?;
+        ctx_builder.set_certificate_chain_file(cert)?;
+        ctx_builder.check_private_key()?;
+        Ok(ctx_builder.build())
     }
 
-    fn build_udp_socket_reuse_addr_port(addr: &SocketAddr) -> Result<UdpSocket, ()> {
+    fn build_udp_socket_reuse_addr_port(addr: &SocketAddr) -> Result<UdpSocket> {
         let address = (*addr).into();
 
-        let socket =
-            Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).map_err(|err| {
-                error!("{}", err);
-            })?;
-        socket.set_reuse_address(true).map_err(|err| {
-            error!("{}", err);
-        })?;
-        socket.set_reuse_port(true).map_err(|err| {
-            error!("{}", err);
-        })?;
-        socket.bind(&address).map_err(|err| {
-            error!("{}", err);
-        })?;
+        let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
+        socket.set_reuse_address(true)?;
+        socket.set_reuse_port(true)?;
+        socket.bind(&address)?;
         let std_sock: std::net::UdpSocket = socket.into();
-        std_sock.set_nonblocking(true).map_err(|err| {
-            error!("{}", err);
-        })?;
-        UdpSocket::from_std(std_sock).map_err(|err| {
-            error!("{}", err);
-        })
+        std_sock.set_nonblocking(true)?;
+        let socket = UdpSocket::from_std(std_sock)?;
+        Ok(socket)
     }
 
     async fn run(self) {
