@@ -81,7 +81,7 @@ where
         };
 
         spawn(async move {
-            let payload = transform.transform(&addr, &payload, &partition);
+            let payload = transform.transform(&addr, payload, &partition);
 
             let mut record = FutureRecord {
                 topic: output_topic,

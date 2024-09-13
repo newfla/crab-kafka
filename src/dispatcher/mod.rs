@@ -37,7 +37,7 @@ where
     T: TransformStrategy + Send + Sync + 'static,
 {
     #[inline]
-    async fn dispatch_packet(&mut self, packet: DataPacket) {
+    fn dispatch_packet(&mut self, packet: DataPacket) {
         let partition = self.partition_strategy.partition(&packet.1);
         if !self.checkpoint_strategy.check((&packet, &partition.0)) {
             return;
@@ -55,7 +55,7 @@ where
 
                  data = self.dispatcher_receiver.recv() => {
                      if let Ok(pkt) = data  {
-                        self.dispatch_packet(pkt).await;
+                        self.dispatch_packet(pkt);
                      }
                  }
             }

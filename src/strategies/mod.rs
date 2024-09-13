@@ -25,6 +25,7 @@ pub trait PartitionStrategy {
 /// Facilities to distributes messages across topic partitions
 ///
 /// Use the enum variants to construct the strategy
+#[non_exhaustive]
 #[derive(new)]
 pub enum PartitionStrategies {
     /// Let the broker to decide the partition
@@ -84,16 +85,13 @@ impl PartitionStrategy for PartitionStrategies {
             PartitionStrategies::RoundRobin {
                 start_partition,
                 num_partitions,
-            } => {
-                *start_partition = AtomicI32::new(fastrand::i32(0..partitions));
-                *num_partitions = partitions
             }
-            PartitionStrategies::StickyRoundRobin {
+            | PartitionStrategies::StickyRoundRobin {
                 start_partition,
                 num_partitions,
             } => {
                 *start_partition = AtomicI32::new(fastrand::i32(0..partitions));
-                *num_partitions = partitions
+                *num_partitions = partitions;
             }
         };
     }
@@ -149,11 +147,12 @@ fn sticky_partition(
 /// Hook to setup per packet forward policy
 pub trait CheckpointStrategy {
     /// Prevents packets to be forwarded in kafka
-    /// data is composed as: (payload, source address, recv_time)
+    /// data is composed as: (payload, source address)
     fn check(&self, data: (&DataPacket, &Option<i32>)) -> bool;
 }
 
 ///Facilities to control the packets inflow to Kafka
+#[non_exhaustive]
 pub enum CheckpointStrategies {
     /// Forward every packet
     OpenDoors,
@@ -176,10 +175,11 @@ impl CheckpointStrategy for CheckpointStrategies {
 /// Hook to modify tha packet payload before sending to Kafka
 pub trait TransformStrategy {
     /// The returned value is used as payload for [`rdkafka::producer::future_producer::FutureRecord`]
-    fn transform(&self, addr: &SocketAddr, payload: &[u8], partition: &Option<i32>) -> Vec<u8>;
+    fn transform(&self, addr: &SocketAddr, payload: Vec<u8>, partition: &Option<i32>) -> Vec<u8>;
 }
 
 /// Facilities to alter the network payload before sending it to Kafka
+#[non_exhaustive]
 #[derive(Clone)]
 pub enum TransformStrategies {
     /// Return payload without modification as [`Vec<u8>`]
@@ -187,9 +187,9 @@ pub enum TransformStrategies {
 }
 
 impl TransformStrategy for TransformStrategies {
-    fn transform(&self, _addr: &SocketAddr, payload: &[u8], _partition: &Option<i32>) -> Vec<u8> {
+    fn transform(&self, _addr: &SocketAddr, payload: Vec<u8>, _partition: &Option<i32>) -> Vec<u8> {
         match self {
-            TransformStrategies::NoTransform => payload.to_vec(),
+            &TransformStrategies::NoTransform => payload,
         }
     }
 }

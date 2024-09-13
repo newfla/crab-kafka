@@ -17,7 +17,7 @@ macro_rules! logger {
 #[doc(hidden)]
 pub fn init_logger(override_level: Option<log::Level>) {
     unsafe {
-        if let false = *INITIALIZED.get_mut() {
+        if !*INITIALIZED.get_mut() {
             match override_level {
                 Some(lv) => simple_logger::init_with_level(lv),
                 None => simple_logger::init_with_env(),
@@ -25,7 +25,7 @@ pub fn init_logger(override_level: Option<log::Level>) {
             .expect("Error initializing logging utility");
 
             *INITIALIZED.get_mut() = true;
-            info!("Logger successfully initialized")
+            info!("Logger successfully initialized");
         }
     }
 }
