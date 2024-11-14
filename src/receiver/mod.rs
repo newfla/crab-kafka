@@ -8,7 +8,6 @@ use std::{
 };
 
 use anyhow::Result;
-use branches::unlikely;
 use coarsetime::Instant;
 use derive_builder::Builder;
 use derive_new::new;
@@ -193,12 +192,11 @@ impl ReceiverTask {
         dispatcher_sender: &AsyncSender<DataPacket>,
     ) {
         unsafe {
-            if unlikely(
-                dispatcher_sender
-                    .send((buf.get_unchecked(..len).to_vec(), addr, Instant::now()))
-                    .await
-                    .is_err(),
-            ) {
+            if dispatcher_sender
+                .send((buf.get_unchecked(..len).to_vec(), addr, Instant::now()))
+                .await
+                .is_err()
+            {
                 error!("Failed to send data to dispatcher");
                 info!("Shutting down receiver task");
                 shutdown_token.cancel();
@@ -527,7 +525,6 @@ impl ReceiverTask {
             ReceiverType::UdpConnected => {
                 //Socket binding handling
                 let socket = Self::build_udp_socket_reuse_addr_port(&self.addr);
-                //let socket = UdpSocket::bind(self.addr).await;
                 if socket.is_err() {
                     error!("Socket binding failed.");
                     self.shutdown_token.cancel();

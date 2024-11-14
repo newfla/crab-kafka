@@ -4,7 +4,6 @@ use std::{
     pin::Pin,
 };
 
-use branches::unlikely;
 use byte_unit::{Byte, UnitType};
 use coarsetime::{Duration, Instant};
 use derive_builder::Builder;
@@ -98,7 +97,7 @@ impl Stats for StatsHolder {
     }
 
     fn calculate(&self) -> Option<StatSummary> {
-        if unlikely(self.stats_vec.is_empty()) {
+        if self.stats_vec.is_empty() {
             return None;
         }
 
