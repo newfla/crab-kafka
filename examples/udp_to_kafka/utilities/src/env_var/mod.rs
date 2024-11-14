@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::{
     logger,
     logger::{debug, info},
@@ -7,7 +5,17 @@ use crate::{
 use envconfig::Envconfig;
 use strum::{Display, EnumString};
 
-#[derive(EnumString, Display)]
+#[derive(Debug, Clone, EnumString, Display)]
+pub enum ReceiverType {
+    #[strum(serialize = "UDP")]
+    Udp,
+    #[strum(serialize = "UDP_CONNECTED")]
+    UdpConnected,
+    #[strum(serialize = "DTLS")]
+    Dtls,
+}
+
+#[derive(Debug, Clone, EnumString, Display, PartialEq, Eq)]
 pub enum PartitionStrategy {
     #[strum(serialize = "NONE")]
     None,
@@ -19,7 +27,7 @@ pub enum PartitionStrategy {
     StickyRoundRobin,
 }
 
-#[derive(EnumString, Display)]
+#[derive(Debug, Clone, EnumString, Display, PartialEq, Eq)]
 pub enum CheckpointStrategy {
     #[strum(serialize = "OPEN_DOORS")]
     OpenDoors,
@@ -29,7 +37,7 @@ pub enum CheckpointStrategy {
     FlipCoin,
 }
 
-#[derive(EnumString, Display)]
+#[derive(Debug, Clone, EnumString, Display, PartialEq, Eq)]
 pub enum OrderStrategy {
     #[strum(serialize = "NOT_ORDERED")]
     NotOrdered,
@@ -45,11 +53,8 @@ pub struct EnvVars {
     #[envconfig(from = "LISTEN_PORT", default = "8888")]
     pub listen_port: u16,
 
-    #[envconfig(from = "USE_UDP_CONNECTED", default = "false")]
-    pub use_udp_connected: bool,
-
-    #[envconfig(from = "USE_DTLS", default = "false")]
-    pub use_dtls: bool,
+    #[envconfig(from = "RECEIVER_TYPE", default = "UDP")]
+    pub receiver_type: ReceiverType,
 
     #[envconfig(from = "SERVER_KEY")]
     pub server_key: Option<String>,
@@ -76,10 +81,10 @@ pub struct EnvVars {
     pub kafka_topic: String,
 
     #[envconfig(from = "KAFKA_PARTITION_STRATEGY", default = "NONE")]
-    kafka_partition_strategy: String,
+    pub kafka_partition_strategy: PartitionStrategy,
 
     #[envconfig(from = "CHECKPOINT_STRATEGY", default = "OPEN_DOORS")]
-    checkpoint_strategy: String,
+    pub checkpoint_strategy: CheckpointStrategy,
 
     #[envconfig(from = "KAFKA_BATCH_NUM_MESSAGES", default = "10000")]
     pub kafka_batch_num_messages: u32,
@@ -101,16 +106,6 @@ pub struct EnvVars {
 
     #[envconfig(from = "KAFKA_RETRIES", default = "1")]
     pub kafka_retries: u32,
-}
-
-impl EnvVars {
-    pub fn kafka_partition_strategy(&self) -> PartitionStrategy {
-        PartitionStrategy::from_str(&self.kafka_partition_strategy).unwrap()
-    }
-
-    pub fn checkpoint_strategy(&self) -> CheckpointStrategy {
-        CheckpointStrategy::from_str(&self.checkpoint_strategy).unwrap()
-    }
 }
 
 pub fn load_env_var() -> Option<EnvVars> {
@@ -148,15 +143,15 @@ mod env_var_tests {
 
         vars = load_env_var();
         assert!(vars.is_some());
-        matches!(
-            vars.unwrap().kafka_partition_strategy(),
+        assert_eq!(
+            vars.unwrap().kafka_partition_strategy,
             PartitionStrategy::None
         );
 
         std::env::set_var("KAFKA_PARTITION_STRATEGY", "RANDOM");
         vars = load_env_var();
-        matches!(
-            vars.unwrap().kafka_partition_strategy(),
+        assert_eq!(
+            vars.unwrap().kafka_partition_strategy,
             PartitionStrategy::Random
         );
     }

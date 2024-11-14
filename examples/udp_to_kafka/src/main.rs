@@ -81,27 +81,22 @@ fn receiver_builder_helper(vars: &EnvVars) -> Receiver {
 
     let buffer_size = vars.buffer_size;
 
-    if vars.use_udp_connected {
-        Receiver::new_udp_connected(ip, port, buffer_size)
-    } else if !vars.use_dtls {
-        Receiver::new_udp_framed(ip, port, buffer_size)
-    } else {
-        Receiver::new_dtls_stream(
+    match vars.receiver_type {
+        env_var::ReceiverType::Udp => Receiver::new_udp_framed(ip, port, buffer_size),
+        env_var::ReceiverType::UdpConnected => Receiver::new_udp_connected(ip, port, buffer_size),
+        env_var::ReceiverType::Dtls => Receiver::new_dtls_stream(
             ip,
             port,
             buffer_size,
             (vars.server_cert.clone(), vars.server_key.clone()),
-        )
+        ),
     }
 }
 
 fn checkpoint_strategy_builder_helper(vars: &EnvVars) -> CheckpointStrategies {
-    info!(
-        "Selected Checkpoint Strategy: {}",
-        vars.checkpoint_strategy()
-    );
+    info!("Selected Checkpoint Strategy: {}", vars.checkpoint_strategy);
 
-    match vars.checkpoint_strategy() {
+    match vars.checkpoint_strategy {
         env_var::CheckpointStrategy::OpenDoors => CheckpointStrategies::OpenDoors,
         env_var::CheckpointStrategy::ClosedDoors => CheckpointStrategies::ClosedDoors,
         env_var::CheckpointStrategy::FlipCoin => CheckpointStrategies::FlipCoin,
@@ -111,10 +106,10 @@ fn checkpoint_strategy_builder_helper(vars: &EnvVars) -> CheckpointStrategies {
 fn partition_strategy_builder_helper(vars: &EnvVars) -> PartitionStrategies {
     info!(
         "Selected Partition Strategy: {}",
-        vars.kafka_partition_strategy()
+        vars.kafka_partition_strategy
     );
 
-    match vars.kafka_partition_strategy() {
+    match vars.kafka_partition_strategy {
         env_var::PartitionStrategy::None => PartitionStrategies::new_none(),
         env_var::PartitionStrategy::Random => PartitionStrategies::new_random(),
         env_var::PartitionStrategy::RoundRobin => PartitionStrategies::new_round_robin(),
