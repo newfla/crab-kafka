@@ -143,8 +143,10 @@ mod env_var_tests {
 
         vars = load_env_var();
         assert!(vars.is_some());
-        assert_eq!(vars.unwrap().kafka_partition_strategy,
-        PartitionStrategy::None);
+        assert_eq!(
+            vars.unwrap().kafka_partition_strategy,
+            PartitionStrategy::None
+        );
 
         std::env::set_var("KAFKA_PARTITION_STRATEGY", "RANDOM");
         vars = load_env_var();
