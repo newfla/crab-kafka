@@ -7,12 +7,12 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use derive_builder::Builder;
 use kanal::{bounded_async, unbounded_async};
 use rdkafka::{
-    producer::{FutureProducer, Producer},
     ClientConfig,
+    producer::{FutureProducer, Producer},
 };
 use tokio::{
     sync::OnceCell,
@@ -22,12 +22,12 @@ use tokio_util::sync::CancellationToken;
 use ustr::ustr;
 
 use crate::{
+    Receiver, TransformStrategy,
     dispatcher::DispatcherTaskBuilder,
     receiver::ReceiverTaskBuilder,
     sender::KafkaPacketSenderBuilder,
     statistics::StatisticsTaskBuilder,
     strategies::{CheckpointStrategy, PartitionStrategy},
-    Receiver, TransformStrategy,
 };
 
 type GlobalForwarder = Mutex<Vec<ForwarderShutdownHandle>>;

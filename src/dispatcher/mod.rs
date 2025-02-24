@@ -10,9 +10,9 @@ use tokio::select;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
+    DataPacket, TransformStrategy,
     sender::KafkaPacketSender,
     strategies::{CheckpointStrategy, PartitionStrategy},
-    DataPacket, TransformStrategy,
 };
 
 #[derive(Builder)]
