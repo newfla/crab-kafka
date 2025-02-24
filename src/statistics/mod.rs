@@ -51,7 +51,11 @@ impl Display for StatSummary {
             .to_string();
         let bandwidth = &bandwidth[0..bandwidth.len() - 1];
 
-        writeln!(f, "\nLost packets: {}\nUnique connections: {}\nBandwidth: {bandwidth}bit/s\nLatency: <min: {min}, max: {max}, average: {average}> ms",self.lost_packets, self.unique_connections)
+        writeln!(
+            f,
+            "\nLost packets: {}\nUnique connections: {}\nBandwidth: {bandwidth}bit/s\nLatency: <min: {min}, max: {max}, average: {average}> ms",
+            self.lost_packets, self.unique_connections
+        )
     }
 }
 

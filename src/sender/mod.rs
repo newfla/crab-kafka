@@ -10,8 +10,8 @@ use tokio::spawn;
 use ustr::Ustr;
 
 use crate::{
-    statistics::StatisticData, DataPacket, DataTransmitted, PartitionDetails, Ticket,
-    TransformStrategy,
+    DataPacket, DataTransmitted, PartitionDetails, Ticket, TransformStrategy,
+    statistics::StatisticData,
 };
 
 #[derive(Builder)]

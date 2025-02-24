@@ -7,12 +7,12 @@ use tokio::{
 };
 
 use crab_kafka::{
-    forwarder::{Forwarder, ForwarderBuilder, ForwarderShutdownHandle},
     CheckpointStrategies, CheckpointStrategy, PartitionStrategies, PartitionStrategy, Receiver,
     TransformStrategies, TransformStrategy,
+    forwarder::{Forwarder, ForwarderBuilder, ForwarderShutdownHandle},
 };
 use utilities::{
-    env_var::{self, load_env_var, EnvVars},
+    env_var::{self, EnvVars, load_env_var},
     logger,
     logger::*,
 };
