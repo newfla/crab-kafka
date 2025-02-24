@@ -229,11 +229,11 @@ impl StatisticsTask {
                     break
                 }
                 _ = timer.tick() => {
-                    if let Some(summary) = self.holder.calculate_and_reset() {
+                    match self.holder.calculate_and_reset() { Some(summary) => {
                         info!("{}",summary);
-                    } else {
+                    } _ => {
                         info!("No data in transit in the last {} seconds", self.timeout.as_secs());
-                    }
+                    }}
                 }
                 stat = self.stats_rx.recv() => {
                     if let Ok(data) = stat {
