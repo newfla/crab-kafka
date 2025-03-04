@@ -97,7 +97,7 @@ impl PartitionStrategy for PartitionStrategies {
     }
 }
 
-#[cached(key = "SocketAddr", convert = r#"{ *addr }"#, sync_writes = true)]
+#[cached(key = "SocketAddr", convert = r#"{ *addr }"#, sync_writes = "default")]
 fn none_partition(addr: &SocketAddr) -> PartitionDetails {
     let key = ustr(&(addr.to_string() + "|auto"));
     (None, key, key)
@@ -128,7 +128,7 @@ fn round_robin_partition(
     (Some(next), key, order_key)
 }
 
-#[cached(key = "SocketAddr", convert = r#"{ *addr }"#, sync_writes = true)]
+#[cached(key = "SocketAddr", convert = r#"{ *addr }"#, sync_writes = "default")]
 fn sticky_partition(
     addr: &SocketAddr,
     start_partition: &AtomicI32,
