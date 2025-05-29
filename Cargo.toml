@@ -1,6 +1,6 @@
 [package]
 name = "crab-kafka"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2024"
 authors = ["Flavio Bizzarri <fl.bizzarri@gmail.com>"]
 license = "Apache-2.0"
