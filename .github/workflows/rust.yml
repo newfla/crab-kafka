@@ -21,7 +21,7 @@ jobs:
       with:
         components: rustfmt
     - name: Dependencies
-      run: sudo apt install libsasl2-dev
+      run: sudo apt install libsasl2-dev libcurl4-openssl-dev
     - name: Check Style
       run: cargo fmt --check
     - name: Build
