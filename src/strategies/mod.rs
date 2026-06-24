@@ -3,7 +3,7 @@ use std::{
     sync::atomic::{AtomicI32, Ordering},
 };
 
-use cached::proc_macro::cached;
+use cached::cached;
 use derive_new::new;
 use fastrand::Rng;
 use log::debug;
